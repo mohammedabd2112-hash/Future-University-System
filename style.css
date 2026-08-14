@@ -1,0 +1,368 @@
+/* ================================
+   إعدادات عامة
+================================ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Tahoma", "Arial", sans-serif;
+    background: #f4f7fb;
+    color: #1f2937;
+    line-height: 1.8;
+}
+
+/* ================================
+   رأس الموقع
+================================ */
+
+header {
+    background: linear-gradient(135deg, #0f3d91, #1769aa);
+    color: white;
+    padding: 20px 7%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+header h1 {
+    font-size: 28px;
+    margin-bottom: 12px;
+}
+
+/* ================================
+   القائمة
+================================ */
+
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+
+nav a:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* ================================
+   المحتوى الرئيسي
+================================ */
+
+main {
+    width: 90%;
+    max-width: 1100px;
+    margin: 40px auto;
+}
+
+main h2 {
+    color: #0f3d91;
+    margin-bottom: 15px;
+    font-size: 30px;
+}
+
+main h3 {
+    color: #1769aa;
+    margin-bottom: 10px;
+}
+
+/* ================================
+   البطاقات
+================================ */
+
+article {
+    background: white;
+    padding: 22px;
+    margin: 18px 0;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+    border-right: 5px solid #1769aa;
+}
+
+article:hover {
+    transform: translateY(-2px);
+    transition: 0.2s;
+}
+
+/* ================================
+   الأزرار
+================================ */
+
+button {
+    background: #1769aa;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #0f3d91;
+    transform: translateY(-1px);
+}
+
+/* ================================
+   النماذج
+================================ */
+
+form {
+    background: white;
+    padding: 25px;
+    margin: 20px 0;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    max-width: 500px;
+    padding: 11px 13px;
+    margin-top: 5px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #1769aa;
+    box-shadow: 0 0 0 3px rgba(23, 105, 170, 0.12);
+}
+
+/* ================================
+   الروابط
+================================ */
+
+a {
+    color: #1769aa;
+}
+
+main a {
+    text-decoration: none;
+}
+
+main a:hover {
+    text-decoration: underline;
+}
+
+/* ================================
+   الخط الفاصل
+================================ */
+
+hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 30px 0;
+}
+
+/* ================================
+   الصفحة الرئيسية
+================================ */
+
+.hero {
+    background: linear-gradient(135deg, #0f3d91, #1769aa);
+    color: white;
+    padding: 60px 30px;
+    border-radius: 20px;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.hero h2 {
+    color: white;
+    font-size: 36px;
+    margin-bottom: 15px;
+}
+
+.hero p {
+    font-size: 18px;
+}
+
+/* ================================
+   شبكة البطاقات
+================================ */
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+    margin-top: 25px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* ================================
+   رسائل النظام
+================================ */
+
+#message {
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+/* ================================
+   التصميم للجوال
+================================ */
+
+@media (max-width: 700px) {
+
+    header {
+        padding: 18px 5%;
+    }
+
+    header h1 {
+        font-size: 23px;
+    }
+
+    nav {
+        flex-direction: column;
+    }
+
+    nav a {
+        display: block;
+        text-align: center;
+    }
+
+    main {
+        width: 92%;
+        margin-top: 25px;
+    }
+
+    main h2 {
+        font-size: 25px;
+    }
+
+    .hero {
+        padding: 40px 20px;
+    }
+
+    .hero h2 {
+        font-size: 27px;
+    }
+
+}
+
+/* ================================
+   صفحة تسجيل الدخول
+================================ */
+
+.login-page {
+    min-height: 100vh;
+    background:
+        linear-gradient(
+            135deg,
+            #eef4ff,
+            #f8fafc
+        );
+}
+
+.login-container {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 430px;
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.12);
+    text-align: center;
+}
+
+.login-icon {
+    width: 75px;
+    height: 75px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8f1ff;
+    border-radius: 50%;
+    font-size: 35px;
+}
+
+.login-card h2 {
+    margin-bottom: 8px;
+    color: #0f3d91;
+    font-size: 30px;
+}
+
+.login-subtitle {
+    color: #6b7280;
+    margin-bottom: 30px;
+}
+
+.login-card form {
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    text-align: right;
+}
+
+.login-card label {
+    display: block;
+    margin: 15px 0 6px;
+    font-weight: bold;
+    color: #374151;
+}
+
+.login-card input {
+    width: 100%;
+    max-width: none;
+    padding: 13px 15px;
+}
+
+.login-button {
+    width: 100%;
+    margin-top: 25px;
+    padding: 13px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.login-footer {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.login-footer a {
+    color: #1769aa;
+    text-decoration: none;
+}
+
+.login-footer a:hover {
+    text-decoration: underline;
+}
+
