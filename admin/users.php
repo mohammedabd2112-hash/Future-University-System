@@ -19,6 +19,7 @@ $result = $conn->query($sql);
 <head>
 
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>إدارة المستخدمين</title>
 
@@ -26,98 +27,50 @@ $result = $conn->query($sql);
 
 </head>
 
-<body>
+<body class="admin-shell admin-inner-page">
+<aside class="admin-sidebar"><a class="admin-brand" href="index.php"><span class="brand__mark">FU</span><span><strong>Future University</strong><small>نظام الإدارة</small></span></a><nav class="admin-nav" aria-label="تنقل الإدارة"><a href="index.php"><span>01</span>لوحة التحكم</a><a href="students.php"><span>02</span>الطلاب</a><a href="teachers.php"><span>03</span>أعضاء هيئة التدريس</a><a href="colleges.php"><span>04</span>الكليات</a><a href="news.php"><span>05</span>الأخبار</a><a class="is-active" href="users.php" aria-current="page"><span>06</span>المستخدمون</a></nav><a class="admin-logout" href="../api/logout.php">تسجيل الخروج</a></aside>
+<div class="admin-content"><header class="admin-topbar"><div><p class="section-kicker">Administrative system</p><h1>إدارة المستخدمين</h1></div><div class="admin-user"><span class="admin-user__mark">FU</span><span>الحسابات والصلاحيات</span></div></header><main class="admin-main">
+<header class="admin-page-heading"><div><p class="breadcrumb"><a href="index.php">لوحة التحكم</a><span>/</span>المستخدمون</p><h2>إدارة حسابات المستخدمين</h2><p>إدارة الحسابات وتحديد أدوار الوصول إلى النظام.</p></div><a class="button" href="#add-user">إضافة مستخدم</a></header>
+<section class="admin-form-panel" id="add-user"><h3>إضافة مستخدم جديد</h3><form class="form-grid" action="add_user.php" method="POST">
 
-<header>
-
-    <h1>إدارة المستخدمين</h1>
-
-    <nav>
-
-        <a href="index.php">
-            لوحة الإدارة
-        </a>
-
-        <a href="../index.php">
-            الرئيسية
-        </a>
-
-        <a href="../api/logout.php">
-            تسجيل الخروج
-        </a>
-
-    </nav>
-
-</header>
-
-
-<main>
-
-    <h2>إدارة حسابات المستخدمين</h2>
-
-
-    <!-- إضافة مستخدم -->
-
-    <h3>إضافة مستخدم جديد</h3>
-
-    <form action="add_user.php" method="POST">
-
-        <label>الاسم:</label>
-
-        <br>
+        <div class="form-group"><label for="user-name">الاسم:</label>
 
         <input
             type="text"
-            name="name"
+            id="user-name" name="name"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>البريد الإلكتروني:</label>
-
-        <br>
+        <div class="form-group"><label for="user-email">البريد الإلكتروني:</label>
 
         <input
             type="email"
-            name="email"
+            id="user-email" name="email"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>كلمة المرور:</label>
-
-        <br>
+        <div class="form-group"><label for="user-password">كلمة المرور:</label>
 
         <input
             type="password"
-            name="password"
+            id="user-password" name="password"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>رقم الهاتف:</label>
-
-        <br>
+        <div class="form-group"><label for="user-phone">رقم الهاتف:</label>
 
         <input
             type="text"
-            name="phone"
-        >
-
-        <br><br>
+            id="user-phone" name="phone"
+        ></div>
 
 
-        <label>نوع المستخدم:</label>
+        <div class="form-group"><label for="user-role">نوع المستخدم:</label>
 
-        <br>
-
-        <select name="role" required>
+        <select id="user-role" name="role" required>
 
             <option value="student">
                 طالب
@@ -127,102 +80,28 @@ $result = $conn->query($sql);
                 مدير
             </option>
 
-        </select>
-
-        <br><br>
+        </select></div>
 
 
-        <button type="submit">
-            إضافة المستخدم
-        </button>
+        <div class="form-actions"><button type="submit">إضافة المستخدم</button></div>
 
-    </form>
-
-
-    <hr>
-
-
-    <!-- المستخدمون -->
-
-    <h3>المستخدمون الحاليون</h3>
+    </form></section><section class="admin-table-panel"><div class="section-heading"><div><p class="section-kicker">السجلات</p><h3>المستخدمون الحاليون</h3></div></div>
 
 
     <?php if ($result && $result->num_rows > 0): ?>
 
-        <?php while ($user = $result->fetch_assoc()): ?>
+        <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>الدور</th><th>تاريخ الإنشاء</th><th>الإجراءات</th></tr></thead><tbody>
+        <?php while ($user = $result->fetch_assoc()): ?><tr>
+            <td><?php echo htmlspecialchars($user["name"]); ?></td><td><?php echo htmlspecialchars($user["email"]); ?></td><td><?php echo htmlspecialchars($user["phone"] ?? ""); ?></td><td><span class="status-info"><?php echo htmlspecialchars($user["role"]); ?></span></td><td><?php echo htmlspecialchars($user["created_at"]); ?></td>
+            <td class="table-actions"><a class="button button-secondary" href="edit_user.php?id=<?php echo $user["id"]; ?>">تعديل</a><form class="row-action-form" action="delete_user.php" method="POST"><input type="hidden" name="id" value="<?php echo $user["id"]; ?>"><button class="button-danger" type="submit">حذف</button></form></td>
+        </tr>
 
-            <article>
-
-                <h3>
-                    <?php echo htmlspecialchars($user["name"]); ?>
-                </h3>
-
-                <p>
-                    <strong>البريد:</strong>
-                    <?php echo htmlspecialchars($user["email"]); ?>
-                </p>
-
-                <p>
-                    <strong>الهاتف:</strong>
-                    <?php echo htmlspecialchars($user["phone"] ?? ""); ?>
-                </p>
-
-                <p>
-                    <strong>الدور:</strong>
-                    <?php echo htmlspecialchars($user["role"]); ?>
-                </p>
-
-                <p>
-                    <strong>تاريخ الإنشاء:</strong>
-                    <?php echo htmlspecialchars($user["created_at"]); ?>
-                </p>
-
-
-                <a href="edit_user.php?id=<?php echo $user["id"]; ?>">
-
-                    <button type="button">
-                        تعديل
-                    </button>
-
-                </a>
-
-
-                <form
-                    action="delete_user.php"
-                    method="POST"
-                    style="display:inline;"
-                >
-
-                    <input
-                        type="hidden"
-                        name="id"
-                        value="<?php echo $user["id"]; ?>"
-                    >
-
-                    <button
-                        type="submit"
-                        onclick="return confirm('هل أنت متأكد من حذف هذا المستخدم؟');"
-                    >
-                        حذف
-                    </button>
-
-                </form>
-
-            </article>
-
-            <hr>
-
-        <?php endwhile; ?>
-
+        <?php endwhile; ?></tbody></table></div>
     <?php else: ?>
-
-        <p>
-            لا يوجد مستخدمون.
-        </p>
-
-    <?php endif; ?>
-
-</main>
+        <p class="empty-state">لا يوجد مستخدمون.</p>
+    <?php endif; ?></section>
+</main></div>
+<script src="../script.js"></script>
 
 </body>
 

@@ -39,11 +39,12 @@ $stmt->close();
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تعديل بيانات الطالب</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 
-<body>
+<body class="admin-edit-page">
 
 <header>
 
@@ -55,7 +56,7 @@ $stmt->close();
 
     <h2>تعديل بيانات الطالب</h2>
 
-    <form action="update_student.php" method="POST">
+    <form class="admin-edit-form" action="update_student.php" method="POST">
 
         <input
             type="hidden"
@@ -122,6 +123,7 @@ $stmt->close();
     </form>
 
 </main>
+<script src="../script.js"></script>
 
 </body>
 

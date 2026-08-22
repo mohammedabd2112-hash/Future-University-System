@@ -19,6 +19,7 @@ $result = $conn->query(
 <head>
 
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>أعضاء هيئة التدريس</title>
 
@@ -26,196 +27,85 @@ $result = $conn->query(
 
 </head>
 
-<body>
+<body class="admin-shell admin-inner-page">
+<aside class="admin-sidebar"><a class="admin-brand" href="index.php"><span class="brand__mark">FU</span><span><strong>Future University</strong><small>نظام الإدارة</small></span></a><nav class="admin-nav" aria-label="تنقل الإدارة"><a href="index.php"><span>01</span>لوحة التحكم</a><a href="students.php"><span>02</span>الطلاب</a><a class="is-active" href="teachers.php" aria-current="page"><span>03</span>أعضاء هيئة التدريس</a><a href="colleges.php"><span>04</span>الكليات</a><a href="news.php"><span>05</span>الأخبار</a><a href="users.php"><span>06</span>المستخدمون</a></nav><a class="admin-logout" href="../api/logout.php">تسجيل الخروج</a></aside>
+<div class="admin-content"><header class="admin-topbar"><div><p class="section-kicker">Administrative system</p><h1>أعضاء هيئة التدريس</h1></div><div class="admin-user"><span class="admin-user__mark">FU</span><span>الإدارة الأكاديمية</span></div></header>
+<main class="admin-main">
+    <header class="admin-page-heading"><div><p class="breadcrumb"><a href="index.php">لوحة التحكم</a><span>/</span>أعضاء هيئة التدريس</p><h2>أعضاء هيئة التدريس</h2><p>إدارة أعضاء هيئة التدريس والتخصصات الأكاديمية.</p></div><a class="button" href="#add-teacher">إضافة عضو</a></header>
+    <section class="admin-form-panel" id="add-teacher"><h3>إضافة عضو هيئة تدريس</h3><form class="form-grid" action="add_teacher.php" method="POST">
 
-<header>
-
-    <h1>إدارة أعضاء هيئة التدريس</h1>
-
-    <nav>
-
-        <a href="index.php">لوحة الإدارة</a>
-
-        <a href="../index.php">الرئيسية</a>
-
-        <a href="../api/logout.php">تسجيل الخروج</a>
-
-    </nav>
-
-</header>
-
-
-<main>
-
-    <h2>إضافة عضو هيئة تدريس</h2>
-
-    <form action="add_teacher.php" method="POST">
-
-        <label>الاسم:</label>
-        <br>
+        <div class="form-group"><label for="teacher-name">الاسم:</label>
 
         <input
             type="text"
-            name="name"
+            id="teacher-name" name="name"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>البريد الإلكتروني:</label>
-        <br>
+        <div class="form-group"><label for="teacher-email">البريد الإلكتروني:</label>
 
         <input
             type="email"
-            name="email"
+            id="teacher-email" name="email"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>رقم الهاتف:</label>
-        <br>
+        <div class="form-group"><label for="teacher-phone">رقم الهاتف:</label>
 
         <input
             type="text"
-            name="phone"
-        >
-
-        <br><br>
+            id="teacher-phone" name="phone"
+        ></div>
 
 
-        <label>الكلية:</label>
-        <br>
+        <div class="form-group"><label for="teacher-college">الكلية:</label>
 
         <input
             type="text"
-            name="college"
+            id="teacher-college" name="college"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>القسم:</label>
-        <br>
+        <div class="form-group"><label for="teacher-department">القسم:</label>
 
         <input
             type="text"
-            name="department"
+            id="teacher-department" name="department"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <label>التخصص:</label>
-        <br>
+        <div class="form-group"><label for="teacher-specialization">التخصص:</label>
 
         <input
             type="text"
-            name="specialization"
+            id="teacher-specialization" name="specialization"
             required
-        >
-
-        <br><br>
+        ></div>
 
 
-        <button type="submit">
-            إضافة عضو
-        </button>
+        <div class="form-actions"><button type="submit">إضافة عضو</button></div>
 
-    </form>
-
-
-    <hr>
-
-
-    <h2>أعضاء هيئة التدريس</h2>
+    </form></section><section class="admin-table-panel"><div class="section-heading"><div><p class="section-kicker">السجلات</p><h3>أعضاء هيئة التدريس</h3></div></div>
 
 
     <?php if ($result && $result->num_rows > 0): ?>
 
-        <?php while ($teacher = $result->fetch_assoc()): ?>
+        <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>الكلية</th><th>القسم</th><th>التخصص</th><th>الإجراءات</th></tr></thead><tbody>
+        <?php while ($teacher = $result->fetch_assoc()): ?><tr>
+            <td><?php echo htmlspecialchars($teacher["name"]); ?></td><td><?php echo htmlspecialchars($teacher["email"]); ?></td><td><?php echo htmlspecialchars($teacher["phone"] ?? ""); ?></td><td><?php echo htmlspecialchars($teacher["college"]); ?></td><td><?php echo htmlspecialchars($teacher["department"]); ?></td><td><?php echo htmlspecialchars($teacher["specialization"]); ?></td>
+            <td class="table-actions"><a class="button button-secondary" href="edit_teacher.php?id=<?php echo $teacher["id"]; ?>">تعديل</a><form class="row-action-form" action="delete_teacher.php" method="POST"><input type="hidden" name="id" value="<?php echo $teacher["id"]; ?>"><button class="button-danger" type="submit">حذف</button></form></td>
+        </tr>
 
-            <article>
-
-                <h3>
-                    <?php echo htmlspecialchars($teacher["name"]); ?>
-                </h3>
-
-                <p>
-                    <strong>البريد:</strong>
-                    <?php echo htmlspecialchars($teacher["email"]); ?>
-                </p>
-
-                <p>
-                    <strong>الهاتف:</strong>
-                    <?php echo htmlspecialchars($teacher["phone"] ?? ""); ?>
-                </p>
-
-                <p>
-                    <strong>الكلية:</strong>
-                    <?php echo htmlspecialchars($teacher["college"]); ?>
-                </p>
-
-                <p>
-                    <strong>القسم:</strong>
-                    <?php echo htmlspecialchars($teacher["department"]); ?>
-                </p>
-
-                <p>
-                    <strong>التخصص:</strong>
-                    <?php echo htmlspecialchars($teacher["specialization"]); ?>
-                </p>
-
-
-                <a href="edit_teacher.php?id=<?php echo $teacher["id"]; ?>">
-
-                    <button type="button">
-                        تعديل
-                    </button>
-
-                </a>
-
-
-                <form
-                    action="delete_teacher.php"
-                    method="POST"
-                    style="display:inline;"
-                >
-
-                    <input
-                        type="hidden"
-                        name="id"
-                        value="<?php echo $teacher["id"]; ?>"
-                    >
-
-                    <button
-                        type="submit"
-                        onclick="return confirm('هل أنت متأكد من حذف عضو هيئة التدريس؟');"
-                    >
-                        حذف
-                    </button>
-
-                </form>
-
-            </article>
-
-            <hr>
-
-        <?php endwhile; ?>
-
+        <?php endwhile; ?></tbody></table></div>
     <?php else: ?>
-
-        <p>
-            لا يوجد أعضاء هيئة تدريس حاليًا.
-        </p>
-
-    <?php endif; ?>
-
-</main>
+        <p class="empty-state">لا يوجد أعضاء هيئة تدريس حاليًا.</p>
+    <?php endif; ?></section>
+</main></div>
+<script src="../script.js"></script>
 
 </body>
 

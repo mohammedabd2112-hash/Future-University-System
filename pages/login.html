@@ -15,43 +15,35 @@
 
 <body class="login-page">
 
-<header>
-
-    <h1>🎓 جامعة المستقبل</h1>
-
-    <nav>
-
-        <a href="../index.php">
-            الرئيسية
+<header class="site-header">
+    <div class="site-header__inner">
+        <a class="brand" href="../index.php" aria-label="جامعة المستقبل - الرئيسية">
+            <span class="brand__mark" aria-hidden="true">FU</span>
+            <span>
+                <strong>Future University</strong>
+                <small>البوابة الجامعية</small>
+            </span>
         </a>
 
-        <a href="colleges.php">
-            الكليات
-        </a>
-
-        <a href="news.php">
-            الأخبار
-        </a>
-
-    </nav>
-
+        <nav class="site-nav" aria-label="التنقل الرئيسي">
+            <a href="../index.php">الرئيسية</a>
+            <a href="colleges.php">الكليات</a>
+            <a href="news.php">الأخبار</a>
+        </nav>
+    </div>
 </header>
 
 
 <main class="login-container">
 
-    <section class="login-card">
+    <section class="login-card" aria-labelledby="login-title">
+        <div class="login-brand" aria-hidden="true">FU</div>
 
-        <div class="login-icon">
-            🎓
-        </div>
-
-        <h2>
-            تسجيل الدخول
-        </h2>
+        <p class="section-kicker">Future University System</p>
+        <h1 id="login-title">مرحبًا بعودتك</h1>
 
         <p class="login-subtitle">
-            ادخل إلى حسابك للوصول إلى خدمات الجامعة
+            سجّل الدخول للوصول إلى خدمات الجامعة.
         </p>
 
 
@@ -83,18 +75,14 @@
             >
 
 
-            <button
-                type="submit"
-                id="loginButton"
-                class="login-button"
-            >
+            <button type="submit" id="loginButton" class="login-button">
                 تسجيل الدخول
             </button>
 
         </form>
 
 
-        <p id="message"></p>
+        <p id="message" role="status" aria-live="polite"></p>
 
 
         <div class="login-footer">
