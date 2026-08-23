@@ -130,8 +130,24 @@ function setupPublicNavigation() {
 
     headerInner.insertBefore(toggle, nav);
 
+    const backdrop = document.createElement("div");
+    backdrop.className = "public-nav-backdrop";
+    backdrop.setAttribute("aria-hidden", "true");
+    document.body.appendChild(backdrop);
+
+    const closePublicNav = () => {
+        nav.classList.remove("is-open");
+        document.body.classList.remove("top-nav-open");
+        backdrop.classList.remove("is-open");
+        toggle.setAttribute("aria-expanded", "false");
+    };
+
+    backdrop.addEventListener("click", closePublicNav);
+
     toggle.addEventListener("click", () => {
         const isOpen = nav.classList.toggle("is-open");
+        document.body.classList.toggle("top-nav-open", isOpen);
+        backdrop.classList.toggle("is-open", isOpen);
 
         toggle.setAttribute(
             "aria-expanded",
@@ -141,7 +157,7 @@ function setupPublicNavigation() {
 
     nav.querySelectorAll("a").forEach(link => {
         link.addEventListener("click", () => {
-            nav.classList.remove("is-open");
+            closePublicNav();
 
             toggle.setAttribute(
                 "aria-expanded",
@@ -152,7 +168,7 @@ function setupPublicNavigation() {
 
     document.addEventListener("click", event => {
         if (!headerInner.contains(event.target)) {
-            nav.classList.remove("is-open");
+            closePublicNav();
 
             toggle.setAttribute(
                 "aria-expanded",
@@ -163,7 +179,7 @@ function setupPublicNavigation() {
 
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") {
-            nav.classList.remove("is-open");
+            closePublicNav();
 
             toggle.setAttribute(
                 "aria-expanded",
@@ -1196,3 +1212,188 @@ setupCounters();
 setupHomepageMotion();
 setupDeleteDialog();
 setupPageLinks();
+
+
+/* =========================================================
+   CINEMATIC ENHANCEMENTS
+========================================================= */
+
+function setupScrollProgress() {
+    if (document.querySelector(".page-progress")) {
+        return;
+    }
+
+    const progress = document.createElement("div");
+    progress.className = "page-progress";
+    progress.setAttribute("aria-hidden", "true");
+    document.body.appendChild(progress);
+
+    let ticking = false;
+
+    const update = () => {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        const ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
+        progress.style.width = `${Math.min(Math.max(ratio * 100, 0), 100)}%`;
+        ticking = false;
+    };
+
+    window.addEventListener("scroll", () => {
+        if (!ticking) {
+            window.requestAnimationFrame(update);
+            ticking = true;
+        }
+    }, { passive: true });
+
+    window.addEventListener("resize", update, { passive: true });
+    update();
+}
+
+function setupHomepageTiltCards() {
+    if (!document.body.classList.contains("home-page")) {
+        return;
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const canHover = window.matchMedia("(hover: hover)").matches;
+
+    if (reduceMotion || !canHover) {
+        return;
+    }
+
+    document.querySelectorAll(".home-page .quick-link, .home-page .news-item").forEach(card => {
+        card.addEventListener("pointermove", event => {
+            const rect = card.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width - 0.5;
+            const y = (event.clientY - rect.top) / rect.height - 0.5;
+            card.style.transform = `perspective(900px) rotateX(${(-y * 1.8).toFixed(2)}deg) rotateY(${(x * 2.4).toFixed(2)}deg) translateY(-4px)`;
+        }, { passive: true });
+
+        card.addEventListener("pointerleave", () => {
+            card.style.transform = "";
+        }, { passive: true });
+    });
+}
+
+function setupSectionSpotlight() {
+    if (!document.body.classList.contains("home-page")) {
+        return;
+    }
+
+    const sections = document.querySelectorAll(".home-page .page-section, .home-page .overview-band");
+    if (!sections.length || !("IntersectionObserver" in window)) {
+        return;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            entry.target.classList.toggle("is-in-view", entry.isIntersecting);
+        });
+    }, { threshold: 0.18 });
+
+    sections.forEach(section => observer.observe(section));
+}
+
+setupScrollProgress();
+setupHomepageTiltCards();
+setupSectionSpotlight();
+
+
+/* =========================================================
+   GLOBAL ATMOSPHERIC EFFECTS
+========================================================= */
+(function setupGlobalAtmosphere() {
+    const body = document.body;
+    if (!body || body.classList.contains("home-page")) return;
+
+    body.classList.add("has-atmospheric-effects");
+
+    const canHover = window.matchMedia("(hover: hover)").matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!canHover || reduceMotion) return;
+
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    window.addEventListener("pointermove", event => {
+        targetX = (event.clientX / window.innerWidth - 0.5) * 2;
+        targetY = (event.clientY / window.innerHeight - 0.5) * 2;
+    }, { passive: true });
+
+    function animateAtmosphere() {
+        currentX += (targetX - currentX) * 0.035;
+        currentY += (targetY - currentY) * 0.035;
+        body.style.setProperty("--atmosphere-x", `${(currentX * 18).toFixed(2)}px`);
+        body.style.setProperty("--atmosphere-y", `${(currentY * 18).toFixed(2)}px`);
+        window.requestAnimationFrame(animateAtmosphere);
+    }
+
+    animateAtmosphere();
+}());
+
+
+/* =========================================================
+   FLOATING BOOKS BACKGROUND
+========================================================= */
+(function setupFloatingBooks() {
+    const body = document.body;
+    if (!body || body.querySelector(".floating-books")) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const layer = document.createElement("div");
+    layer.className = "floating-books";
+    layer.setAttribute("aria-hidden", "true");
+
+    const colors = ["#102a43", "#1f4e79", "#e87932", "#5c8fa8", "#b8cbd6"];
+    const positions = [
+        [7, 18], [17, 72], [29, 34], [42, 84], [56, 15],
+        [68, 66], [79, 28], [91, 78], [12, 92], [88, 48]
+    ];
+
+    positions.forEach(([left, top], index) => {
+        const book = document.createElement("span");
+        book.className = "floating-book";
+        book.style.left = `${left}%`;
+        book.style.top = `${top}%`;
+        book.style.setProperty("--book-color", colors[index % colors.length]);
+        book.style.setProperty("--book-width", `${24 + (index % 4) * 9}px`);
+        book.style.setProperty("--book-height", `${8 + (index % 3) * 3}px`);
+        book.style.setProperty("--book-rotate", `${-28 + (index * 13) % 56}deg`);
+        book.style.setProperty("--book-duration", `${12 + (index % 5) * 2}s`);
+        book.style.setProperty("--book-delay", `${-(index * 1.4)}s`);
+        book.style.setProperty("--book-drift", `${18 + (index % 4) * 16}px`);
+        layer.appendChild(book);
+    });
+
+    body.prepend(layer);
+}());
+
+
+/* =========================================================
+   FU MARK POINTER GLOW
+========================================================= */
+(function setupFuMarkMotion() {
+    const marks = document.querySelectorAll(".brand__mark, .login-brand, .faculty-member__mark, .admin-user__mark");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const canHover = window.matchMedia("(hover: hover)").matches;
+
+    if (!marks.length || reduceMotion || !canHover) return;
+
+    marks.forEach(mark => {
+        mark.addEventListener("pointermove", event => {
+            const rect = mark.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width - 0.5;
+            const y = (event.clientY - rect.top) / rect.height - 0.5;
+            mark.style.setProperty("--fu-x", `${(x * 5).toFixed(2)}px`);
+            mark.style.setProperty("--fu-y", `${(y * 5).toFixed(2)}px`);
+        }, { passive: true });
+
+        mark.addEventListener("pointerleave", () => {
+            mark.style.setProperty("--fu-x", "0px");
+            mark.style.setProperty("--fu-y", "0px");
+        }, { passive: true });
+    });
+}());
