@@ -4,7 +4,7 @@ import {
   LayoutDashboard, LogOut, Search, ShieldCheck, 
   UserPlus, Trash2, Pencil, X, School, UserCheck, Newspaper, ArrowUpRight, 
   PlusCircle, FolderPlus, Calendar, UserCog, BookOpen, RefreshCw, ArrowRight,
-  ArrowLeft, Sparkles
+  ArrowLeft, Sparkles, CreditCard, Award
 } from 'lucide-react';
 
 interface User {
@@ -43,6 +43,42 @@ interface NewsItem {
   date?: string;
 }
 
+interface Invoice {
+  id: number;
+  student_id: number;
+  student_name?: string;
+  title: string;
+  amount: number;
+  status: 'unpaid' | 'partial' | 'paid';
+  total_paid?: number;
+  remaining_balance?: number;
+  created_at: string;
+}
+
+interface Course {
+  id: number;
+  college_id: number;
+  course_code: string;
+  course_name: string;
+  credit_hours: number;
+  college_name?: string;
+}
+
+interface GradeRecord {
+  enrollment_id: number;
+  student_id: number;
+  student_name: string;
+  course_id: number;
+  course_code: string;
+  course_name: string;
+  credit_hours: number;
+  midterm_score: number;
+  practical_score: number;
+  final_score: number;
+  total_score: number;
+  grade_rating: string;
+}
+
 interface DashboardStats {
   students: number;
   teachers: number;
@@ -71,9 +107,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [showLoginView, setShowLoginView] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'colleges' | 'teachers' | 'news' | 'users'>('overview');
-  
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'colleges' | 'teachers' | 'news' | 'users' | 'finance' | 'courses' | 'grades'>('overview');  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [stats, setStats] = useState<DashboardStats>({ students: 0, teachers: 0, colleges: 0, news: 0 });
   const [recentStudents, setRecentStudents] = useState<Student[]>([]);
@@ -84,6 +118,253 @@ export default function App() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [systemUsers, setSystemUsers] = useState<User[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loadingFinance, setLoadingFinance] = useState(false);
+  const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false);
+  const [newInvStudentId, setNewInvStudentId] = useState('');
+  const [newInvTitle, setNewInvTitle] = useState('');
+  const [newInvAmount, setNewInvAmount] = useState('');
+
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('نقداً');
+
+  const loadInvoices = async () => {
+    try {
+      const res = await fetch('http://localhost/uws/api/finance.php?action=get_invoices', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) {
+        console.warn('تعذر جلب الفواتير من الخادم، كود الاستجابة:', res.status);
+        return;
+      }
+      const data = await res.json();
+      if (data && data.success) {
+        setInvoices(data.invoices || []);
+      }
+    } catch (err) {
+      console.warn('تنبيه أثناء تحميل الفواتير:', err);
+    }
+  };
+
+  const handleAddInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+    setModalLoading(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/finance.php?action=add_invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: Number(newInvStudentId),
+          title: newInvTitle,
+          amount: Number(newInvAmount)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowAddInvoiceModal(false);
+        setNewInvStudentId('');
+        setNewInvTitle('');
+        setNewInvAmount('');
+        loadInvoices();
+      } else {
+        setModalError(data.message || 'فشل إضافة الفاتورة');
+      }
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // دالة حذف فاتورة
+  const handleDeleteInvoice = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
+    try {
+      const res = await fetch(`http://localhost/uws/api/finance.php?action=delete_invoice&id=${id}`);
+      const data = await res.json();
+      if (data.success) {
+        setInvoices(prev => prev.filter(inv => Number(inv.id) !== Number(id)));
+      } else {
+        alert(data.message || 'فشل الحذف');
+      }
+    } catch {
+      alert('خطأ أثناء الاتصال بالخادم لحذف الفاتورة');
+    }
+  };
+  
+  // حالات الكنترول والنتائج
+  const [gradeRecords, setGradeRecords] = useState<GradeRecord[]>([]);
+  const [loadingGrades, setLoadingGrades] = useState(false);
+
+  // حالات نافذة رصد الدرجات
+  const [editingGrade, setEditingGrade] = useState<GradeRecord | null>(null);
+  const [midtermScore, setMidtermScore] = useState('');
+  const [practicalScore, setPracticalScore] = useState('');
+  const [finalScore, setFinalScore] = useState('');
+
+  // 1. جلب كشوفات الطلاب والدرجات
+  const loadGrades = async () => {
+    setLoadingGrades(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/grades.php?action=get_enrollments_grades');
+      const data = await res.json();
+      if (data.success) setGradeRecords(data.records);
+    } catch (err) {
+      console.error('فشل تحميل الدرجات', err);
+    } finally {
+      setLoadingGrades(false);
+    }
+  };
+
+  // 2. حفظ ورصد درجات الطالب
+  const handleSaveGrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGrade) return;
+    setModalError(null);
+    setModalLoading(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/grades.php?action=save_grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enrollment_id: editingGrade.enrollment_id,
+          midterm_score: Number(midtermScore),
+          practical_score: Number(practicalScore),
+          final_score: Number(finalScore)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditingGrade(null);
+        loadGrades();
+      } else {
+        setModalError(data.message || 'فشل رصد الدرجات');
+      }
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleAddPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payingInvoice) return;
+    setModalError(null);
+    setModalLoading(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/finance.php?action=add_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_id: payingInvoice.id,
+          student_id: payingInvoice.student_id,
+          amount_paid: Number(payAmount),
+          payment_method: payMethod
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayingInvoice(null);
+        setPayAmount('');
+        loadInvoices();
+      } else {
+        setModalError(data.message || 'فشل السداد');
+      }
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // حالات إدارة المقررات والتسجيل الأكاديمي
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+
+  // حالات نافذة إضافة مقرر جديد
+  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [newCourseName, setNewCourseName] = useState('');
+  const [newCourseCredits, setNewCourseCredits] = useState('3');
+  const [newCourseCollegeId, setNewCourseCollegeId] = useState('');
+
+  // حالات نافذة تسجيل طالب في مقرر
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [enrollStudentId, setEnrollStudentId] = useState('');
+  const [enrollCourseId, setEnrollCourseId] = useState('');
+
+  // 1. دالة جلب قائمة المقررات الدراسية
+  const loadCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/courses.php?action=get_courses');
+      const data = await res.json();
+      if (data.success) setCourses(data.courses);
+    } catch (err) {
+      console.error('فشل تحميل المقررات', err);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  // 2. دالة حفظ مقرر دراسي جديد
+  const handleAddCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+    setModalLoading(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/courses.php?action=add_course', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          college_id: Number(newCourseCollegeId),
+          course_code: newCourseCode,
+          course_name: newCourseName,
+          credit_hours: Number(newCourseCredits)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowAddCourseModal(false);
+        setNewCourseCode('');
+        setNewCourseName('');
+        setNewCourseCredits('3');
+        setNewCourseCollegeId('');
+        loadCourses();
+      } else {
+        setModalError(data.message || 'فشل حفظ المقرر');
+      }
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // 3. دالة تسجيل طالب في مقرر أكاديمي
+  const handleEnroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+    setModalLoading(true);
+    try {
+      const res = await fetch('http://localhost/uws/api/courses.php?action=enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: Number(enrollStudentId),
+          course_id: Number(enrollCourseId),
+          academic_year: '2025/2026',
+          semester: 'الفصل الأول'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowEnrollModal(false);
+        setEnrollStudentId('');
+        setEnrollCourseId('');
+        alert('تم تسجيل الطالب بنجاح في المقرر!');
+      } else {
+        setModalError(data.message || 'تعذر التسجيل');
+      }
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
@@ -170,13 +451,15 @@ export default function App() {
       .finally(() => setCheckingSession(false));
   }, []);
 
-  const loadAllAdminData = () => {
+ const loadAllAdminData = () => {
     loadDashboardData();
     loadStudents();
     loadColleges();
     loadTeachers();
     loadNews();
     loadSystemUsers();
+    loadInvoices();
+    loadCourses();
   };
 
   const loadStudentViewData = () => {
@@ -208,13 +491,14 @@ export default function App() {
   };
 
   const loadColleges = async () => {
-    setLoadingColleges(true);
     try {
-      const res = await fetch('http://localhost/uws/api/colleges.php', { credentials: 'include' });
+      const res = await fetch('http://localhost/uws/api/colleges.php?action=get');
       const data = await res.json();
-      if (data.success) setColleges(data.colleges);
-    } finally {
-      setLoadingColleges(false);
+      if (data.success && Array.isArray(data.colleges)) {
+        setColleges(data.colleges);
+      }
+    } catch (err) {
+      console.error('فشل جلب الكليات:', err);
     }
   };
 
@@ -435,17 +719,23 @@ export default function App() {
       }
     } catch {}
   };
-
+  
+  // 1. إضافة كلية
   const handleAddCollege = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
     setModalLoading(true);
     try {
-      const res = await fetch('http://localhost/uws/api/colleges.php', {
+      const res = await fetch('http://localhost/uws/api/colleges.php?action=add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name: newCollegeName, description: newCollegeDesc })
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newCollegeName,
+          description: newCollegeDesc
+        })
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -454,46 +744,72 @@ export default function App() {
         setNewCollegeDesc('');
         loadColleges();
         loadDashboardData();
+      } else {
+        setModalError(data.message || 'حدث خطأ أثناء حفظ الكلية');
       }
+    } catch (err: any) {
+      console.error('Connection error:', err);
+      setModalError('تعذر معالجة الطلب، تأكد من صحة مسار الملف واستجابة السيرفر');
     } finally {
       setModalLoading(false);
     }
   };
 
-  const handleUpdateCollege = async (e: React.FormEvent) => {
+  // 2. تعديل كلية
+  const handleEditCollege = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCollege) return;
     setModalError(null);
     setModalLoading(true);
     try {
-      const res = await fetch('http://localhost/uws/api/colleges.php', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id: editingCollege.id, name: editCollegeName, description: editCollegeDesc })
+      const res = await fetch('http://localhost/uws/api/colleges.php?action=edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          id: editingCollege.id,
+          name: editCollegeName,
+          description: editCollegeDesc
+        })
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (data.success) {
         setEditingCollege(null);
         loadColleges();
+      } else {
+        setModalError(data.message || 'فشل التعديل');
       }
+    } catch (err) {
+      setModalError('تعذر الاتصال بالخادم لحفظ التعديل');
     } finally {
       setModalLoading(false);
     }
   };
 
-  const handleDeleteCollege = async (id: number) => {
-    if (!window.confirm('حذف الكلية؟')) return;
+  // 3. حذف كلية
+  const handleDeleteCollege = async (id: number | string, name?: string) => {
+    if (!window.confirm(`هل أنت متأكد من حذف ${name || 'هذه الكلية'}؟`)) return;
     try {
-      const res = await fetch(`http://localhost/uws/api/colleges.php?id=${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`http://localhost/uws/api/colleges.php?action=delete&id=${id}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
       const data = await res.json();
-      if (data.success) {
-        setColleges(prev => prev.filter(c => c.id !== id));
-        loadDashboardData();
+      console.log('Delete response:', data);
+
+      if (data.success && data.message === 'تم الحذف بنجاح') {
+        // حذف العنصر فوراً من الشاشة بمقارنة مرنة لـ id
+        setColleges((prev) => prev.filter((c) => String(c.id) !== String(id)));
+        loadColleges();
+      } else {
+        alert(data.message || 'فشل الحذف من الخادم');
       }
-    } catch {}
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('حدث خطأ أثناء محاولة الحذف، راجع الـ Console');
+    }
   };
 
+  // 4. إدارة الطلاب
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
@@ -556,6 +872,7 @@ export default function App() {
     } catch {}
   };
 
+  // 5. تسجيل الدخول والخروج
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -598,7 +915,7 @@ export default function App() {
       </div>
     );
   }
-
+  
   const q = searchQuery.toLowerCase().trim();
   const filteredStudents = students.filter(s => s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q));
   const filteredColleges = colleges.filter(c => c.name.toLowerCase().includes(q) || (c.description && c.description.toLowerCase().includes(q)));
@@ -1037,6 +1354,36 @@ export default function App() {
                   <UserCog size={18} className="shrink-0" />
                   {!sidebarCollapsed && <span className="truncate">إدارة المستخدمين</span>}
                 </button>
+                <button 
+                  onClick={() => setActiveTab('finance')} 
+                  title={sidebarCollapsed ? "المالية والحسابات" : undefined}
+                  className={`w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
+                  } ${activeTab === 'finance' ? 'bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white shadow-lg shadow-[#4F26E9]/30' : 'hover:bg-[#231F35] text-slate-400 hover:text-white'}`}
+                >
+                  <CreditCard size={18} className="shrink-0" />
+                  {!sidebarCollapsed && <span className="truncate">المالية والحسابات</span>}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('courses')} 
+                  title={sidebarCollapsed ? "المقررات والتسجيل الأكاديمي" : undefined}
+                  className={`w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
+                  } ${activeTab === 'courses' ? 'bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white shadow-lg shadow-[#4F26E9]/30' : 'hover:bg-[#231F35] text-slate-400 hover:text-white'}`}
+                >
+                  <BookOpen size={18} className="shrink-0" />
+                  {!sidebarCollapsed && <span className="truncate">المقررات والتسجيل</span>}
+                </button>
+                <button 
+                  onClick={() => setActiveTab('grades')} 
+                  title={sidebarCollapsed ? "الكنترول ورصد الدرجات" : undefined}
+                  className={`w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 ${
+                    sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
+                  } ${activeTab === 'grades' ? 'bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white shadow-lg shadow-[#4F26E9]/30' : 'hover:bg-[#231F35] text-slate-400 hover:text-white'}`}
+                >
+                  <Award size={18} className="shrink-0" />
+                  {!sidebarCollapsed && <span className="truncate">الكنترول والدرجات</span>}
+                </button>
               </nav>
             </div>
 
@@ -1430,7 +1777,7 @@ export default function App() {
               </main>
             )}
 
-            {/* تبويب الكليات */}
+            {/* تبويب إدارة الكليات */}
             {activeTab === 'colleges' && (
               <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
                 <div className="flex items-center justify-between">
@@ -1440,33 +1787,55 @@ export default function App() {
                   </div>
                   <button 
                     onClick={() => setShowAddCollegeModal(true)} 
-                    className="px-4 py-2.5 bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#4F26E9]/25 hover:shadow-[#4F26E9]/45 hover:-translate-y-0.5"
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#4F26E9]/25 hover:-translate-y-0.5"
                   >
-                    <FolderPlus size={18} />
+                    <PlusCircle size={18} />
                     <span>إضافة كلية جديدة</span>
                   </button>
                 </div>
 
-                {loadingColleges ? (
-                  <div className="p-12 text-center text-slate-400">
-                    <div className="w-8 h-8 border-4 border-[#8453FC] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                    جاري تحميل الكليات...
+                {/* شبكة عرض كروت الكليات مع أزرار التعديل والحذف */}
+                {colleges.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-12 border border-[#ECE8F6] text-center text-slate-400">
+                    لا توجد كليات مضافة حتى الآن.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filteredColleges.map((college) => (
-                      <div key={college.id} className="bg-white rounded-3xl border border-[#ECE8F6] p-6 shadow-sm card-3d flex flex-col justify-between">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {colleges.map((college) => (
+                      <div key={college.id} className="bg-white rounded-3xl p-6 border border-[#ECE8F6] shadow-sm hover:shadow-md transition-all duration-300 card-3d flex flex-col justify-between">
                         <div>
-                          <div className="flex items-start justify-between">
-                            <div className="p-3 bg-[#F7F5FC] text-[#4F26E9] rounded-2xl mb-4 border border-[#ECE8F6]"><School size={22} /></div>
-                            <span className="font-mono text-xs px-2.5 py-1 bg-[#F7F5FC] border border-[#ECE8F6] text-[#4F26E9] rounded-lg">#{college.id}</span>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-[#F7F5FC] text-[#4F26E9] flex items-center justify-center border border-[#ECE8F6]">
+                              <GraduationCap size={24} />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button 
+                                onClick={() => {
+                                  setEditingCollege(college);
+                                  setEditCollegeName(college.name);
+                                  setEditCollegeDesc(college.description || '');
+                                }} 
+                                className="p-2 text-slate-400 hover:text-[#4F26E9] hover:bg-[#F7F5FC] rounded-xl transition"
+                                title="تعديل الكلية"
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteCollege(college.id,)} 
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                                title="حذف الكلية"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </div>
-                          <h3 className="font-bold text-[#151320] text-lg mb-2">{college.name}</h3>
-                          <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{college.description || 'لا يوجد وصف مضاف.'}</p>
+                          <h3 className="font-bold text-lg text-[#151320]">{college.name}</h3>
+                          <p className="text-slate-500 text-sm mt-2 line-clamp-3 leading-relaxed">
+                            {college.description || 'لا يوجد وصف مضاف لهذه الكلية.'}
+                          </p>
                         </div>
-                        <div className="flex items-center justify-end gap-2 pt-5 mt-5 border-t border-[#ECE8F6]">
-                          <button onClick={() => { setEditingCollege(college); setEditCollegeName(college.name); setEditCollegeDesc(college.description || ''); }} className="p-2 text-[#4F26E9] hover:bg-[#F7F5FC] rounded-lg transition"><Pencil size={16} /></button>
-                          <button onClick={() => handleDeleteCollege(college.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition"><Trash2 size={16} /></button>
+                        <div className="pt-6 mt-4 border-t border-[#ECE8F6] flex items-center justify-between text-xs text-slate-400">
+                          <span className="font-mono">معرّف الكلية: #{college.id}</span>
                         </div>
                       </div>
                     ))}
@@ -1581,6 +1950,252 @@ export default function App() {
                 )}
               </main>
             )}
+
+            {/* تبويب المالية والحسابات */}
+            {activeTab === 'finance' && (
+              <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#151320]">المالية والرسوم الدراسية</h1>
+                    <p className="text-slate-500 text-sm mt-1">إدارة فواتير الطلاب وسندات القبض (نظام ERP)</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowAddInvoiceModal(true)} 
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#4F26E9]/25 hover:shadow-[#4F26E9]/45 hover:-translate-y-0.5"
+                  >
+                    <PlusCircle size={18} />
+                    <span>إصدار فاتورة جديدة</span>
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
+                  {loadingFinance ? (
+                    <div className="p-12 text-center text-slate-400">
+                      <div className="w-8 h-8 border-4 border-[#8453FC] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      جاري تحميل القيود المالية...
+                    </div>
+                  ) : (
+                    <table className="w-full text-right border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                          <th className="py-4 px-6">رقم الفاتورة</th>
+                          <th className="py-4 px-6">الطالب</th>
+                          <th className="py-4 px-6">البيان</th>
+                          <th className="py-4 px-6">المبلغ</th>
+                          <th className="py-4 px-6">المدفوع</th>
+                          <th className="py-4 px-6">المتبقي</th>
+                          <th className="py-4 px-6">الحالة</th>
+                          <th className="py-4 px-6 text-center">الإجراء</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
+                        {invoices.length === 0 ? (
+                          <tr><td colSpan={8} className="py-8 text-center text-slate-400">لا توجد فواتير مالية مسجلة</td></tr>
+                        ) : (
+                          invoices.map((inv) => (
+                            <tr key={inv.id} className="hover:bg-[#F7F5FC]/60 transition">
+                              <td className="py-4 px-6 font-mono text-slate-500">#{inv.id}</td>
+                              <td className="py-4 px-6 font-semibold text-[#151320]">{inv.student_name || `طالب #${inv.student_id}`}</td>
+                              <td className="py-4 px-6">{inv.title}</td>
+                              <td className="py-4 px-6 font-bold text-[#4F26E9]">{Number(inv.amount).toLocaleString()}</td>
+                              <td className="py-4 px-6 font-semibold text-emerald-600">{Number(inv.total_paid || 0).toLocaleString()}</td>
+                              <td className="py-4 px-6 font-semibold text-rose-500">{Number(inv.remaining_balance || inv.amount).toLocaleString()}</td>
+                              <td className="py-4 px-6">
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                  inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                  inv.status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}>
+                                  {inv.status === 'paid' ? 'مسدد' : inv.status === 'partial' ? 'جزئي' : 'غير مسدد'}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {inv.status !== 'paid' && (
+                          <button
+                            type="button"
+                            onClick={() => { setPayingInvoice(inv); setPayAmount(String(inv.remaining_balance || inv.amount)); }}
+                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                          >
+                            سداد
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteInvoice(inv.id)}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                          title="حذف الفاتورة"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </main>
+            )}
+
+            {/* تبويب المقررات الدراسية والتسجيل الأكاديمي */}
+            {activeTab === 'courses' && (
+              <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#151320]">المقررات والخطط الدراسية</h1>
+                    <p className="text-slate-500 text-sm mt-1">إدارة المساقات الأكاديمية وتسجيل الطلاب في المقررات</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setShowEnrollModal(true)} 
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-lg shadow-emerald-600/25 hover:-translate-y-0.5"
+                    >
+                      <UserCheck size={18} />
+                      <span>تسجيل طالب في مقرر</span>
+                    </button>
+                    <button 
+                      onClick={() => setShowAddCourseModal(true)} 
+                      className="px-4 py-2.5 bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-lg shadow-[#4F26E9]/25 hover:-translate-y-0.5"
+                    >
+                      <PlusCircle size={18} />
+                      <span>إضافة مقرر جديد</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
+                  {loadingCourses ? (
+                    <div className="p-12 text-center text-slate-400">
+                      <div className="w-8 h-8 border-4 border-[#8453FC] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      جاري تحميل المقررات الدراسية...
+                    </div>
+                  ) : (
+                    <table className="w-full text-right border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                          <th className="py-4 px-6">المعرّف</th>
+                          <th className="py-4 px-6">رمز المقرر (Code)</th>
+                          <th className="py-4 px-6">اسم المادة / المقرر</th>
+                          <th className="py-4 px-6">الكلية التابعة</th>
+                          <th className="py-4 px-6">الساعات المعتمدة</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
+                        {courses.length === 0 ? (
+                          <tr><td colSpan={5} className="py-8 text-center text-slate-400">لا توجد مقررات دراسية مضافة حتى الآن</td></tr>
+                        ) : (
+                          courses.map((course) => (
+                            <tr key={course.id} className="hover:bg-[#F7F5FC]/60 transition">
+                              <td className="py-4 px-6 font-mono text-slate-500">#{course.id}</td>
+                              <td className="py-4 px-6 font-mono font-bold text-[#4F26E9]">{course.course_code}</td>
+                              <td className="py-4 px-6 font-semibold text-[#151320]">{course.course_name}</td>
+                              <td className="py-4 px-6">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#F7F5FC] text-[#4F26E9] border border-[#ECE8F6]">
+                                  {course.college_name || `كلية #${course.college_id}`}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 font-mono font-semibold text-slate-600">
+                                {course.credit_hours} ساعات
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </main>
+            )}
+
+            {/* تبويب الكنترول والنتائج الأكاديمية */}
+            {activeTab === 'grades' && (
+              <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#151320]">الكنترول ورصد الدرجات</h1>
+                    <p className="text-slate-500 text-sm mt-1">كشف درجات الطلاب، احتساب المجاميع، والتقديرات الأكاديمية</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
+                  {loadingGrades ? (
+                    <div className="p-12 text-center text-slate-400">
+                      <div className="w-8 h-8 border-4 border-[#8453FC] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      جاري تحميل سجلات الكنترول والدرجات...
+                    </div>
+                  ) : (
+                    <table className="w-full text-right border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                          <th className="py-4 px-6">الطالب</th>
+                          <th className="py-4 px-6">المقرر الدراسي</th>
+                          <th className="py-4 px-6 text-center">أعمال الفصل / نصفي</th>
+                          <th className="py-4 px-6 text-center">العملي</th>
+                          <th className="py-4 px-6 text-center">النهائي</th>
+                          <th className="py-4 px-6 text-center">المجموع الكلي</th>
+                          <th className="py-4 px-6 text-center">التقدير</th>
+                          <th className="py-4 px-6 text-center">الإجراء</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
+                        {gradeRecords.length === 0 ? (
+                          <tr><td colSpan={8} className="py-8 text-center text-slate-400">لا توجد سجلات تسجيل لمواد حتى الآن لترصد لها درجات</td></tr>
+                        ) : (
+                          gradeRecords.map((record) => (
+                            <tr key={record.enrollment_id} className="hover:bg-[#F7F5FC]/60 transition">
+                              <td className="py-4 px-6">
+                                <span className="font-semibold text-[#151320] block">{record.student_name}</span>
+                                <span className="text-xs text-slate-400 font-mono">#{record.student_id}</span>
+                              </td>
+                              <td className="py-4 px-6">
+                                <span className="font-semibold text-[#151320] block">{record.course_name}</span>
+                                <span className="text-xs text-[#4F26E9] font-mono font-bold">{record.course_code}</span>
+                              </td>
+                              <td className="py-4 px-6 text-center font-mono">{record.midterm_score}</td>
+                              <td className="py-4 px-6 text-center font-mono">{record.practical_score}</td>
+                              <td className="py-4 px-6 text-center font-mono">{record.final_score}</td>
+                              <td className="py-4 px-6 text-center font-mono font-bold text-lg text-[#4F26E9]">
+                                {record.total_score}
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+                                  record.grade_rating === 'ممتاز' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                  record.grade_rating === 'جيد جداً' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  record.grade_rating === 'جيد' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                  record.grade_rating === 'مقبول' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  record.grade_rating === 'لم ترصد' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                  'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}>
+                                  {record.grade_rating}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                                <button 
+                                  onClick={() => {
+                                    setEditingGrade(record);
+                                    setMidtermScore(String(record.midterm_score));
+                                    setPracticalScore(String(record.practical_score));
+                                    setFinalScore(String(record.final_score));
+                                  }} 
+                                  className="px-3.5 py-1.5 bg-[#4F26E9] hover:bg-[#431ED6] text-white rounded-xl text-xs font-semibold shadow-sm transition-all duration-200 flex items-center gap-1.5 mx-auto"
+                                >
+                                  <Pencil size={14} />
+                                  <span>رصد / تعديل</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </main>
+            )}
+
           </div>
 
           {/* نوافذ المستخدمين */}
@@ -1768,26 +2383,65 @@ export default function App() {
             </div>
           )}
 
-          {/* نوافذ الكليات */}
+          {/* نافذة إضافة كلية */}
           {showAddCollegeModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
                 <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
                   <h3 className="font-bold text-[#151320] text-lg">إضافة كلية</h3>
-                  <button onClick={() => setShowAddCollegeModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                  <button type="button" onClick={() => setShowAddCollegeModal(false)} className="text-slate-400 hover:text-slate-600">
+                    <X size={20} />
+                  </button>
                 </div>
+
+                {modalError && (
+                  <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold">
+                    {modalError}
+                  </div>
+                )}
+
                 <form onSubmit={handleAddCollege} className="space-y-4 mt-5">
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم الكلية</label><input type="text" required value={newCollegeName} onChange={(e) => setNewCollegeName(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">الوصف</label><textarea rows={3} value={newCollegeDesc} onChange={(e) => setNewCollegeDesc(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم الكلية</label>
+                    <input 
+                      type="text" 
+                      placeholder="مثال: كلية الهندسة والتقنية" 
+                      required 
+                      value={newCollegeName} 
+                      onChange={(e) => setNewCollegeName(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#4F26E9]" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الوصف</label>
+                    <textarea 
+                      rows={3} 
+                      placeholder="وصف مختصر للكلية وأقسامها..." 
+                      value={newCollegeDesc} 
+                      onChange={(e) => setNewCollegeDesc(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#4F26E9] resize-none" 
+                    />
+                  </div>
                   <div className="flex gap-3 pt-3">
-                    <button type="button" onClick={() => setShowAddCollegeModal(false)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
-                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25">إضافة</button>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowAddCollegeModal(false)} 
+                      className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      إلغاء
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={modalLoading} 
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25 transition disabled:opacity-50"
+                    >
+                      {modalLoading ? 'جاري الإضافة...' : 'إضافة'}
+                    </button>
                   </div>
                 </form>
               </div>
             </div>
           )}
-
           {editingCollege && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
@@ -1795,7 +2449,7 @@ export default function App() {
                   <h3 className="font-bold text-[#151320] text-lg">تعديل الكلية</h3>
                   <button onClick={() => setEditingCollege(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                 </div>
-                <form onSubmit={handleUpdateCollege} className="space-y-4 mt-5">
+                <form onSubmit={handleEditCollege} className="space-y-4 mt-5">
                   <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم الكلية</label><input type="text" required value={editCollegeName} onChange={(e) => setEditCollegeName(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
                   <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">الوصف</label><textarea rows={3} value={editCollegeDesc} onChange={(e) => setEditCollegeDesc(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
                   <div className="flex gap-3 pt-3">
@@ -1806,8 +2460,272 @@ export default function App() {
               </div>
             </div>
           )}
+          {/* نافذة إصدار فاتورة */}
+          {showAddInvoiceModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <h3 className="font-bold text-[#151320] text-lg">إصدار فاتورة رسوم دراسية</h3>
+                  <button onClick={() => setShowAddInvoiceModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
+                <form onSubmit={handleAddInvoice} className="space-y-4 mt-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر الطالب</label>
+                    <select required value={newInvStudentId} onChange={(e) => setNewInvStudentId(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
+                      <option value="">-- حدد الطالب --</option>
+                      {students.map(s => <option key={s.id} value={s.id}>{s.name} (#{s.id})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">بيان الفاتورة</label>
+                    <input type="text" placeholder="مثال: رسوم الفصل الدراسي الأول" required value={newInvTitle} onChange={(e) => setNewInvTitle(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">المبلغ المطلوب</label>
+                    <input type="number" required value={newInvAmount} onChange={(e) => setNewInvAmount(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" />
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button type="button" onClick={() => setShowAddInvoiceModal(false)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
+                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25">إصدار الفاتورة</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة تسجيل سداد / سند قبض */}
+          {payingInvoice && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <h3 className="font-bold text-[#151320] text-lg">سند قبض / تسجيل دفعة</h3>
+                  <button onClick={() => setPayingInvoice(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
+                <form onSubmit={handleAddPayment} className="space-y-4 mt-5">
+                  <div className="p-3 bg-[#F7F5FC] rounded-xl border border-[#ECE8F6] text-xs space-y-1">
+                    <p className="text-slate-500">الطالب: <span className="font-bold text-[#151320]">{payingInvoice.student_name}</span></p>
+                    <p className="text-slate-500">الفاتورة: <span className="font-bold text-[#151320]">{payingInvoice.title}</span></p>
+                    <p className="text-slate-500">المبلغ المتبقي: <span className="font-bold text-rose-500 font-mono">{payingInvoice.remaining_balance} ريال</span></p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">مبلغ السداد</label>
+                    <input type="number" required max={payingInvoice.remaining_balance} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">طريقة الدفع</label>
+                    <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
+                      <option value="نقداً">نقداً</option>
+                      <option value="تحويل بنكي">تحويل بنكي</option>
+                      <option value="شيك">شيك</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button type="button" onClick={() => setPayingInvoice(null)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
+                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md">تسجيل الدفعة</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
+      {/* نافذة إضافة مقرر دراسي جديد */}
+          {showAddCourseModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <h3 className="font-bold text-[#151320] text-lg">إضافة مقرر دراسي جديد</h3>
+                  <button onClick={() => setShowAddCourseModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
+                <form onSubmit={handleAddCourse} className="space-y-4 mt-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الكلية التابع لها</label>
+                    <select required value={newCourseCollegeId} onChange={(e) => setNewCourseCollegeId(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
+                      <option value="">-- اختر الكلية --</option>
+                      {colleges.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">رمز المقرر (Course Code)</label>
+                    <input type="text" placeholder="مثال: CS101" required value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم المقرر</label>
+                    <input type="text" placeholder="مثال: مقدمة في علوم الحاسوب" required value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">عدد الساعات المعتمدة</label>
+                    <input type="number" min="1" max="6" required value={newCourseCredits} onChange={(e) => setNewCourseCredits(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" />
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button type="button" onClick={() => setShowAddCourseModal(false)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
+                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25">حفظ المقرر</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة تسجيل طالب في مقرر */}
+          {showEnrollModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <h3 className="font-bold text-[#151320] text-lg">تسجيل طالب في مقرر أكاديمي</h3>
+                  <button onClick={() => setShowEnrollModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
+                <form onSubmit={handleEnroll} className="space-y-4 mt-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر الطالب</label>
+                    <select required value={enrollStudentId} onChange={(e) => setEnrollStudentId(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
+                      <option value="">-- حدد الطالب --</option>
+                      {students.map(s => <option key={s.id} value={s.id}>{s.name} (#{s.id})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر المقرر الدراسي</label>
+                    <select required value={enrollCourseId} onChange={(e) => setEnrollCourseId(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
+                      <option value="">-- حدد المادة --</option>
+                      {courses.map(c => <option key={c.id} value={c.id}>{c.course_code} - {c.course_name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button type="button" onClick={() => setShowEnrollModal(false)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
+                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md">تأكيد التسجيل</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة رصد وتعديل درجات الطالب */}
+          {editingGrade && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <div>
+                    <h3 className="font-bold text-[#151320] text-lg">رصد الدرجات الأكاديمية</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{editingGrade.student_name} - {editingGrade.course_name}</p>
+                  </div>
+                  <button onClick={() => setEditingGrade(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                </div>
+                {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
+                <form onSubmit={handleSaveGrade} className="space-y-4 mt-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">أعمال الفصل / النصفي (من 30 أو 20)</label>
+                    <input 
+                      type="number" 
+                      step="0.5" 
+                      min="0" 
+                      max="100" 
+                      required 
+                      value={midtermScore} 
+                      onChange={(e) => setMidtermScore(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الدرجة العملية / التكليفات (من 20 أو 10)</label>
+                    <input 
+                      type="number" 
+                      step="0.5" 
+                      min="0" 
+                      max="100" 
+                      value={practicalScore} 
+                      onChange={(e) => setPracticalScore(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الاختبار النهائي (من 50 أو 60)</label>
+                    <input 
+                      type="number" 
+                      step="0.5" 
+                      min="0" 
+                      max="100" 
+                      required 
+                      value={finalScore} 
+                      onChange={(e) => setFinalScore(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
+                    />
+                  </div>
+                  <div className="p-3 bg-[#F7F5FC] rounded-xl border border-[#ECE8F6] flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-semibold">المجموع المحسوب:</span>
+                    <span className="font-mono font-bold text-base text-[#4F26E9]">
+                      {(Number(midtermScore) || 0) + (Number(practicalScore) || 0) + (Number(finalScore) || 0)} / 100
+                    </span>
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button type="button" onClick={() => setEditingGrade(null)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
+                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25">حفظ واعتماد الدرجات</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
     </>
   );
+
+  {/* نافذة تعديل الكلية */}
+          {editingCollege && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  <h3 className="font-bold text-[#151320] text-lg">تعديل بيانات الكلية</h3>
+                  <button type="button" onClick={() => setEditingCollege(null)} className="text-slate-400 hover:text-slate-600">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {modalError && (
+                  <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold">
+                    {modalError}
+                  </div>
+                )}
+
+                <form onSubmit={handleEditCollege} className="space-y-4 mt-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم الكلية</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={editCollegeName} 
+                      onChange={(e) => setEditCollegeName(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#4F26E9]" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الوصف</label>
+                    <textarea 
+                      rows={3} 
+                      value={editCollegeDesc} 
+                      onChange={(e) => setEditCollegeDesc(e.target.value)} 
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#4F26E9] resize-none" 
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-3">
+                    <button 
+                      type="button" 
+                      onClick={() => setEditingCollege(null)} 
+                      className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      إلغاء
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={modalLoading} 
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] hover:from-[#431ED6] hover:to-[#7642F8] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25 transition disabled:opacity-50"
+                    >
+                      {modalLoading ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 }
+

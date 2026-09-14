@@ -1,12 +1,26 @@
-export interface User {
+export interface Invoice {
   id: number;
-  name: string;
-  email: string;
-  role: 'admin' | 'student';
+  student_id: number;
+  student_name?: string;
+  student_email?: string;
+  title: string;
+  amount: number;
+  academic_year: string;
+  semester: string;
+  status: 'unpaid' | 'partial' | 'paid';
+  total_paid?: number;
+  remaining_balance?: number;
+  created_at: string;
 }
 
-export interface LoginResponse {
-  success: boolean;
-  message: string;
-  user?: User;
+export interface Payment {
+  id: number;
+  invoice_id: number;
+  student_id: number;
+  amount_paid: number;
+  payment_method: 'نقداً' | 'تحويل بنكي' | 'شيك';
+  receipt_number: string;
+  payment_date: string;
+  notes?: string;
+  created_at: string;
 }
