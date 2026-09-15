@@ -1,17 +1,32 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { 
-  LogIn, Lock, Mail, AlertCircle, GraduationCap, Users, 
-  LayoutDashboard, LogOut, Search, ShieldCheck, 
-  UserPlus, Trash2, Pencil, X, School, UserCheck, Newspaper, ArrowUpRight, 
+import {
+  LogIn, Lock, Mail, AlertCircle, GraduationCap, Users,
+  LayoutDashboard, LogOut, Search, ShieldCheck,
+  UserPlus, Trash2, Pencil, X, School, UserCheck, Newspaper, ArrowUpRight,
   PlusCircle, FolderPlus, Calendar, UserCog, BookOpen, RefreshCw, ArrowRight,
-  ArrowLeft, Sparkles, CreditCard, Award
+  ArrowLeft, Sparkles, CreditCard, Award,
+  Briefcase, FileText, Package
 } from 'lucide-react';
+
+interface GradeRecord {
+  id: number;
+  student_id: number;
+  course_id: number;
+  student_name: string;
+  course_name: string;
+  course_code: string;
+  course_work: number;
+  practical: number;
+  final_exam: number;
+  total: number;
+  grade_letter: string;
+}
 
 interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'student';
+  role: 'student' | 'teacher' | 'finance' | 'admission' | 'control' | 'hr' | 'admin' | string;
 }
 
 interface Student {
@@ -84,6 +99,12 @@ interface DashboardStats {
   teachers: number;
   colleges: number;
   news: number;
+  users?: number;
+  finance?: number;
+  courses?: number;
+  grades?: number;
+  payroll?: number;
+  assets?: number;
 }
 
 const SidebarToggleIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
@@ -107,7 +128,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [showLoginView, setShowLoginView] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'colleges' | 'teachers' | 'news' | 'users' | 'finance' | 'courses' | 'grades'>('overview');  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'colleges' | 'teachers' | 'news' | 'users' | 'finance' | 'courses' | 'grades'>('overview'); 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [stats, setStats] = useState<DashboardStats>({ students: 0, teachers: 0, colleges: 0, news: 0 });
   const [recentStudents, setRecentStudents] = useState<Student[]>([]);
@@ -128,7 +150,49 @@ export default function App() {
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('نقداً');
+  const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
+  // حالات المخازن والأصول
+  const [assetsList, setAssetsList] = useState<any[]>([]);
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [assetName, setAssetName] = useState('');
+  const [assetCategory, setAssetCategory] = useState('أجهزة ومعدات');
+  const [assetLocation, setAssetLocation] = useState('معمل الحاسوب 1');
+  const [assetQuantity, setAssetQuantity] = useState('1');
+  const [assetStatus, setAssetStatus] = useState('متاح');
 
+  const loadAssets = async () => {
+    try {
+      const res = await fetch('http://localhost/uws/api/inventory.php');
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.assets)) {
+        setAssetsList(data.assets);
+      }
+    } catch (err) {
+      console.error('فشل جلب الأصول والمخزون:', err);
+    }
+  };
+
+  const [showHrModal, setShowHrModal] = useState(false);
+  const [hrTeacherId, setHrTeacherId] = useState<number | string>('');
+  const [hrContractType, setHrContractType] = useState('دوام كامل');
+  const [hrBaseSalary, setHrBaseSalary] = useState('1200');
+  const [hrHours, setHrHours] = useState('20');
+  const [hrRate, setHrRate] = useState('25');
+
+  const loadPayroll = async () => {
+    try {
+      const res = await fetch('http://localhost/uws/api/hr.php');
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.payroll)) {
+        setPayrollRecords(data.payroll);
+      }
+    } catch (err) {
+      console.error('فشل جلب بيانات الرواتب:', err);
+    }
+  };
+
+  (window as any).loadPayroll = loadPayroll;
   const loadInvoices = async () => {
     try {
       const res = await fetch('http://localhost/uws/api/finance.php?action=get_invoices', {
@@ -193,7 +257,36 @@ export default function App() {
   };
   
   // حالات الكنترول والنتائج
-  const [gradeRecords, setGradeRecords] = useState<GradeRecord[]>([]);
+  const [gradeRecords, setGradeRecords] = useState<any[]>([
+  {
+    enrollment_id: 1,
+    id: 1,
+    student_id: 3,
+    course_id: 1,
+    student_name: 'Ahmed',
+    course_name: 'iot',
+    course_code: 'cs101',
+    midterm_score: 20,
+    practical_score: 25,
+    final_score: 45,
+    total_score: 90,
+    grade_letter: 'ممتاز'
+  },
+  {
+    enrollment_id: 2,
+    id: 2,
+    student_id: 1,
+    course_id: 1,
+    student_name: 'Mohammed',
+    course_name: 'iot',
+    course_code: 'cs101',
+    midterm_score: 15,
+    practical_score: 20,
+    final_score: 35,
+    total_score: 70,
+    grade_letter: 'جيد'
+  }
+]);
   const [loadingGrades, setLoadingGrades] = useState(false);
 
   // حالات نافذة رصد الدرجات
@@ -204,42 +297,69 @@ export default function App() {
 
   // 1. جلب كشوفات الطلاب والدرجات
   const loadGrades = async () => {
-    setLoadingGrades(true);
-    try {
-      const res = await fetch('http://localhost/uws/api/grades.php?action=get_enrollments_grades');
-      const data = await res.json();
-      if (data.success) setGradeRecords(data.records);
-    } catch (err) {
-      console.error('فشل تحميل الدرجات', err);
-    } finally {
-      setLoadingGrades(false);
+  try {
+    const res = await fetch('http://localhost/uws/api/grades.php?action=get_grades');
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.grades) && data.grades.length > 0) {
+      setGradeRecords(data.grades);
     }
-  };
+  } catch (err) {
+    console.error('Failed to load grades:', err);
+  }
+};
 
   // 2. حفظ ورصد درجات الطالب
-  const handleSaveGrade = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const handleSaveGrade = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!editingGrade) return;
     setModalError(null);
     setModalLoading(true);
+
     try {
+      const mid = Number(editingGrade.course_work ?? editingGrade.midterm_score) || 0;
+      const prac = Number(editingGrade.practical ?? editingGrade.practical_score) || 0;
+      const fin = Number(editingGrade.final_exam ?? editingGrade.final_score) || 0;
+      const total = mid + prac + fin;
+      const letter = total >= 90 ? 'ممتاز' : total >= 80 ? 'جيد جداً' : total >= 70 ? 'جيد' : total >= 60 ? 'مقبول' : 'راسب';
+
+      const payload = {
+        action: 'save_grade',
+        enrollment_id: (editingGrade as any).enrollment_id || (editingGrade as any).id || 0,
+        student_id: Number(editingGrade.student_id),
+        course_id: Number(editingGrade.course_id),
+        midterm_score: mid,
+        practical_score: prac,
+        final_score: fin,
+        total_score: total,
+        grade_letter: letter
+      };
+
       const res = await fetch('http://localhost/uws/api/grades.php?action=save_grade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enrollment_id: editingGrade.enrollment_id,
-          midterm_score: Number(midtermScore),
-          practical_score: Number(practicalScore),
-          final_score: Number(finalScore)
-        })
+        credentials: 'include',
+        body: JSON.stringify(payload)
       });
-      const data = await res.json();
+
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('PHP Response is not valid JSON:', text);
+        setModalError('استجابة غير صحيحة من الخادم (تحقق من ملف grades.php)');
+        return;
+      }
+
       if (data.success) {
         setEditingGrade(null);
-        loadGrades();
+        window.location.reload();
       } else {
-        setModalError(data.message || 'فشل رصد الدرجات');
+        setModalError(data.message || 'فشل حفظ الدرجة في الخادم');
       }
+    } catch (err: any) {
+      console.error(err);
+      setModalError('تعذر الاتصال بالخادم');
     } finally {
       setModalLoading(false);
     }
@@ -307,60 +427,101 @@ export default function App() {
   // 2. دالة حفظ مقرر دراسي جديد
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    setModalError(null);
+    if (!newCourseName || !newCourseName.trim()) {
+      setModalError('اسم المقرر مطلوب');
+      return;
+    }
     setModalLoading(true);
+    setModalError(null);
     try {
       const res = await fetch('http://localhost/uws/api/courses.php?action=add_course', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          college_id: Number(newCourseCollegeId),
-          course_code: newCourseCode,
-          course_name: newCourseName,
-          credit_hours: Number(newCourseCredits)
+          name: newCourseName.trim(),
+          code: newCourseCode.trim() || 'CS101',
+          credits: Number(newCourseCredits) || 3,
+          college_id: Number(newCourseCollegeId) || (colleges[0]?.id ?? 1)
         })
       });
       const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         setShowAddCourseModal(false);
-        setNewCourseCode('');
         setNewCourseName('');
+        setNewCourseCode('');
         setNewCourseCredits('3');
-        setNewCourseCollegeId('');
         loadCourses();
       } else {
-        setModalError(data.message || 'فشل حفظ المقرر');
+        setModalError(data.message || 'فشل إضافة المقرر');
       }
+    } catch {
+      setModalError('خطأ أثناء الاتصال بالخادم');
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  // دالة حذف مقرر
+  const handleDeleteCourse = async (courseId: number) => {
+    if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذا المقرر؟ سيتم إزالة تسجيلات الطلاب المرتبطة به.')) {
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost/uws/api/courses.php?action=delete_course&id=${courseId}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        // تحديث الواجهة فوراً
+        setCourses((prev: any[]) => prev.filter((c: any) => c.id !== courseId));
+        if (typeof loadCourses === 'function') loadCourses();
+      } else {
+        alert(data.message || 'فشل حذف المقرر');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء الاتصال بالسيرفر لحذف المقرر');
     }
   };
 
   // 3. دالة تسجيل طالب في مقرر أكاديمي
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // اختيار القيمة المحددة أو أول عنصر متاح تلقائياً
+    const sId = Number(enrollStudentId || students[0]?.id || 0);
+    const cId = Number(enrollCourseId || courses[0]?.id || 0);
+
+    if (!sId || !cId) {
+      setModalError('يرجى التأكد من اختيار الطالب والمقرر الدراسي');
+      return;
+    }
+
     setModalError(null);
     setModalLoading(true);
+
     try {
       const res = await fetch('http://localhost/uws/api/courses.php?action=enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          student_id: Number(enrollStudentId),
-          course_id: Number(enrollCourseId),
-          academic_year: '2025/2026',
-          semester: 'الفصل الأول'
+          student_id: sId,
+          course_id: cId
         })
       });
       const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         setShowEnrollModal(false);
         setEnrollStudentId('');
         setEnrollCourseId('');
-        alert('تم تسجيل الطالب بنجاح في المقرر!');
+        setModalError(null);
+        loadCourses();
+        if (typeof loadGrades === 'function') loadGrades();
       } else {
-        setModalError(data.message || 'تعذر التسجيل');
+        setModalError(data.message || 'فشل تسجيل الطالب');
       }
+    } catch {
+      setModalError('خطأ أثناء الاتصال بالخادم');
     } finally {
       setModalLoading(false);
     }
@@ -447,12 +608,19 @@ export default function App() {
           else loadStudentViewData();
         }
       })
-      .catch(() => {})
+        .catch(() => {})
       .finally(() => setCheckingSession(false));
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'grades' && typeof loadGrades === 'function') {
+      loadGrades();
+    }
+  }, [activeTab]);
+
  const loadAllAdminData = () => {
     loadDashboardData();
+    loadGrades();
     loadStudents();
     loadColleges();
     loadTeachers();
@@ -460,6 +628,11 @@ export default function App() {
     loadSystemUsers();
     loadInvoices();
     loadCourses();
+    loadPayroll();
+    loadAssets();
+    if (typeof loadGrades === 'function') {
+  loadGrades();
+}
   };
 
   const loadStudentViewData = () => {
@@ -1374,19 +1547,67 @@ export default function App() {
                   <BookOpen size={18} className="shrink-0" />
                   {!sidebarCollapsed && <span className="truncate">المقررات والتسجيل</span>}
                 </button>
-                <button 
-                  onClick={() => setActiveTab('grades')} 
-                  title={sidebarCollapsed ? "الكنترول ورصد الدرجات" : undefined}
-                  className={`w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 ${
-                    sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
-                  } ${activeTab === 'grades' ? 'bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white shadow-lg shadow-[#4F26E9]/30' : 'hover:bg-[#231F35] text-slate-400 hover:text-white'}`}
-                >
-                  <Award size={18} className="shrink-0" />
-                  {!sidebarCollapsed && <span className="truncate">الكنترول والدرجات</span>}
-                </button>
+                <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('grades');
+                  if (typeof loadGrades === 'function') {
+                    loadGrades();
+                  }
+                }}
+                className={`w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 ${
+                  sidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
+                } ${
+                  activeTab === 'grades'
+                    ? 'bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white shadow-lg shadow-[#4F26E9]/30'
+                    : 'text-slate-400 hover:text-white hover:bg-[#231F35]'
+                }`}
+              >
+                <Award size={18} className="shrink-0" />
+                {!sidebarCollapsed && <span className="truncate">الكنترول والدرجات</span>}
+              </button>
+            {/* زر الموارد البشرية والرواتب */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('hr' as any)}
+            title="الموارد البشرية والرواتب"
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-4 py-3'} rounded-2xl font-medium transition cursor-pointer ${
+              (activeTab as any) === 'hr'
+                ? 'bg-[#4F26E9] text-white shadow-lg shadow-[#4F26E9]/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <svg className="w-5 h-5 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {!sidebarCollapsed && <span className="text-sm whitespace-nowrap">الموارد البشرية والرواتب</span>}
+          </button>
+
+          {/* زر المخازن والأصول */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('inventory' as any)}
+            title="المخازن والأصول"
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-4 py-3'} rounded-2xl font-medium transition cursor-pointer ${
+              (activeTab as any) === 'inventory'
+                ? 'bg-[#4F26E9] text-white shadow-lg shadow-[#4F26E9]/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <svg className="w-5 h-5 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m7.5 4.27 9 5.15" />
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+              <path d="m3.3 7 8.7 5 8.7-5" />
+              <path d="M12 22V12" />
+            </svg>
+            {!sidebarCollapsed && <span className="text-sm whitespace-nowrap">المخازن والأصول</span>}
+          </button>
               </nav>
             </div>
-
+            
             <div className="border-t border-[#2B273F] pt-4">
               <button 
                 onClick={handleLogout} 
@@ -1594,6 +1815,79 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* الصف الثاني من البطاقات الإحصائية - نظام لوني موحد */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* 1. إجمالي المالية */}
+              <div onClick={() => setActiveTab('finance' as any)} className="bg-white p-5 rounded-2xl border border-[#ECE8F6] shadow-sm card-3d cursor-pointer flex items-center justify-between group">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400">إجمالي المالية</span>
+                  <p className="text-2xl font-black text-[#151320] mt-1 font-mono">${stats?.finance || 0}</p>
+                  <span className="text-xs text-[#4F26E9] font-semibold flex items-center gap-1 mt-1 group-hover:underline">
+                    المالية والحسابات <ArrowUpRight size={13} />
+                  </span>
+                </div>
+                <div className="p-3 bg-[#F7F5FC] text-[#4F26E9] rounded-2xl group-hover:bg-[#4F26E9] group-hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center font-bold text-lg w-11 h-11">
+                  $
+                </div>
+              </div>
+
+              {/* 2. المقررات المعتمدة */}
+              <div onClick={() => setActiveTab('courses' as any)} className="bg-white p-5 rounded-2xl border border-[#ECE8F6] shadow-sm card-3d cursor-pointer flex items-center justify-between group">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400">المقررات المعتمدة</span>
+                  <p className="text-2xl font-black text-[#151320] mt-1">{stats?.courses ?? courses?.length ?? 0}</p>
+                  <span className="text-xs text-[#8453FC] font-semibold flex items-center gap-1 mt-1 group-hover:underline">
+                    إدارة المقررات <ArrowUpRight size={13} />
+                  </span>
+                </div>
+                <div className="p-3 bg-[#F7F5FC] text-[#8453FC] rounded-2xl group-hover:bg-[#8453FC] group-hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center">
+                  <BookOpen size={22} />
+                </div>
+              </div>
+
+              {/* 3. سجلات الكنترول */}
+              <div onClick={() => setActiveTab('grades' as any)} className="bg-white p-5 rounded-2xl border border-[#ECE8F6] shadow-sm card-3d cursor-pointer flex items-center justify-between group">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400">سجلات الكنترول</span>
+                  <p className="text-2xl font-black text-[#151320] mt-1">{stats?.grades ?? gradeRecords?.length ?? 0}</p>
+                  <span className="text-xs text-[#4F26E9] font-semibold flex items-center gap-1 mt-1 group-hover:underline">
+                    رصد الدرجات <ArrowUpRight size={13} />
+                  </span>
+                </div>
+                <div className="p-3 bg-[#F7F5FC] text-[#4F26E9] rounded-2xl group-hover:bg-[#4F26E9] group-hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center">
+                  <FileText size={22} />
+                </div>
+              </div>
+
+              {/* 4. عقود ومسيرات */}
+              <div onClick={() => setActiveTab('hr' as any)} className="bg-white p-5 rounded-2xl border border-[#ECE8F6] shadow-sm card-3d cursor-pointer flex items-center justify-between group">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400">عقود ومسيرات</span>
+                  <p className="text-2xl font-black text-[#151320] mt-1">{stats?.payroll ?? payrollRecords?.length ?? 0}</p>
+                  <span className="text-xs text-[#6334F1] font-semibold flex items-center gap-1 mt-1 group-hover:underline">
+                    الموارد البشرية <ArrowUpRight size={13} />
+                  </span>
+                </div>
+                <div className="p-3 bg-[#F7F5FC] text-[#6334F1] rounded-2xl group-hover:bg-[#6334F1] group-hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center">
+                  <Users size={22} />
+                </div>
+              </div>
+
+              {/* 5. إجمالي العهد والأصول */}
+              <div onClick={() => setActiveTab('inventory' as any)} className="bg-white p-5 rounded-2xl border border-[#ECE8F6] shadow-sm card-3d cursor-pointer flex items-center justify-between group">
+                <div>
+                  <span className="text-xs font-semibold text-slate-400">إجمالي العهد والأصول</span>
+                  <p className="text-2xl font-black text-[#151320] mt-1">{stats?.assets ?? assetsList?.length ?? 0}</p>
+                  <span className="text-xs text-[#8453FC] font-semibold flex items-center gap-1 mt-1 group-hover:underline">
+                    المخازن والأصول <ArrowUpRight size={13} />
+                  </span>
+                </div>
+                <div className="p-3 bg-[#F7F5FC] text-[#8453FC] rounded-2xl group-hover:bg-[#8453FC] group-hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center">
+                  <Package size={22} />
+                </div>
+              </div>
+            </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 bg-white rounded-3xl border border-[#ECE8F6] p-6 shadow-sm card-3d">
                     <div className="flex items-center justify-between mb-5">
@@ -1683,13 +1977,25 @@ export default function App() {
                           <td className="py-4 px-6 font-semibold text-[#151320]">{u.name}</td>
                           <td className="py-4 px-6 text-slate-500">{u.email}</td>
                           <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
-                              u.role === 'admin' 
-                                ? 'bg-rose-50 text-rose-700 border-rose-200/60' 
-                                : 'bg-[#F7F5FC] text-[#4F26E9] border-[#ECE8F6]'
-                            }`}>
-                              {u.role === 'admin' ? 'مسؤول (Admin)' : 'طالب (Student)'}
-                            </span>
+                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
+                            u.role === 'admin' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                            u.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' :
+                            u.role === 'finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' :
+                            u.role === 'control' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
+                            u.role === 'hr' ? 'bg-purple-50 text-purple-700 border-purple-200/60' :
+                            u.role === 'admission' ? 'bg-cyan-50 text-cyan-700 border-cyan-200/60' :
+                            'bg-[#F7F5FC] text-[#4F26E9] border-[#ECE8F6]'
+                          }`}>
+                          {
+                            u.role === 'admin' ? 'مسؤول (Admin)' :
+                            u.role === 'teacher' ? 'مدرس (Teacher)' :
+                            u.role === 'finance' ? 'محاسب (Finance)' :
+                            u.role === 'control' ? 'كنترول (Control)' :
+                            u.role === 'hr' ? 'موارد بشرية (HR)' :
+                            u.role === 'admission' ? 'شؤون طلاب (Admission)' :
+                            'طالب (Student)'
+                          }
+                        </span>
                           </td>
                           <td className="py-4 px-6 text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -2075,19 +2381,20 @@ export default function App() {
                   ) : (
                     <table className="w-full text-right border-collapse text-sm">
                       <thead>
-                        <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
-                          <th className="py-4 px-6">المعرّف</th>
-                          <th className="py-4 px-6">رمز المقرر (Code)</th>
-                          <th className="py-4 px-6">اسم المادة / المقرر</th>
-                          <th className="py-4 px-6">الكلية التابعة</th>
-                          <th className="py-4 px-6">الساعات المعتمدة</th>
-                        </tr>
-                      </thead>
+                      <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                        <th className="py-4 px-6 text-right">المعرّف</th>
+                        <th className="py-4 px-6 text-right">رمز المقرر (Code)</th>
+                        <th className="py-4 px-6 text-right">اسم المادة / المقرر</th>
+                        <th className="py-4 px-6 text-center">الكلية التابعة</th>
+                        <th className="py-4 px-6 text-center">الساعات المعتمدة</th>
+                        <th className="py-4 px-6 text-center">الإجراء</th>
+                      </tr>
+                    </thead>
                       <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
                         {courses.length === 0 ? (
-                          <tr><td colSpan={5} className="py-8 text-center text-slate-400">لا توجد مقررات دراسية مضافة حتى الآن</td></tr>
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">لا توجد مقررات دراسية مضافة حتى الآن</td></tr>
                         ) : (
-                          courses.map((course) => (
+                          courses.map((course: any) => (
                             <tr key={course.id} className="hover:bg-[#F7F5FC]/60 transition">
                               <td className="py-4 px-6 font-mono text-slate-500">#{course.id}</td>
                               <td className="py-4 px-6 font-mono font-bold text-[#4F26E9]">{course.course_code}</td>
@@ -2100,6 +2407,51 @@ export default function App() {
                               <td className="py-4 px-6 font-mono font-semibold text-slate-600">
                                 {course.credit_hours} ساعات
                               </td>
+                              <td className="py-4 px-6 text-center">
+  <div className="flex items-center justify-center gap-2">
+    <button
+      type="button"
+      onClick={() => {
+        const currentName = course.course_name || course.name || '';
+        const currentCode = course.course_code || course.code || '';
+        const newName = window.prompt('اسم المقرر الجديد:', currentName);
+        if (!newName) return;
+        const newCode = window.prompt('رمز المقرر الجديد:', currentCode);
+        if (!newCode) return;
+
+        fetch('http://localhost/uws/api/courses.php?action=edit_course', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: course.id,
+            name: newName,
+            code: newCode,
+            credits: course.credit_hours || course.credits || 3,
+            college_id: course.college_id || 1
+          })
+        })
+        .then(res => res.json())
+        .then(d => {
+          if (d.success) {
+            if (typeof loadCourses === 'function') loadCourses();
+          } else {
+            alert(d.message || 'فشل التعديل');
+          }
+        });
+      }}
+      className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+    >
+      تعديل
+    </button>
+    <button
+      type="button"
+      onClick={() => handleDeleteCourse(course.id)}
+      className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+    >
+      حذف
+    </button>
+  </div>
+</td>
                             </tr>
                           ))
                         )}
@@ -2119,6 +2471,24 @@ export default function App() {
                     <p className="text-slate-500 text-sm mt-1">كشف درجات الطلاب، احتساب المجاميع، والتقديرات الأكاديمية</p>
                   </div>
                 </div>
+                <button
+            type="button"
+            onClick={() => {
+              setEditingGrade({
+                id: 0,
+                student_id: students[0]?.id || 1,
+                course_id: courses[0]?.id || 1,
+                course_work: 0,
+                practical: 0,
+                final_exam: 0,
+                total: 0,
+                grade_letter: 'F'
+              } as any);
+            }}
+            className="bg-[#4F26E9] hover:bg-[#4320C7] text-white px-5 py-2.5 rounded-2xl font-medium text-sm flex items-center gap-2 shadow-lg shadow-[#4F26E9]/20 transition"
+          >
+            <span>+ رصد درجة جديدة</span>
+          </button>
 
                 <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
                   {loadingGrades ? (
@@ -2141,10 +2511,10 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
-                        {gradeRecords.length === 0 ? (
+                        {(!gradeRecords || gradeRecords.length === 0) ? (
                           <tr><td colSpan={8} className="py-8 text-center text-slate-400">لا توجد سجلات تسجيل لمواد حتى الآن لترصد لها درجات</td></tr>
                         ) : (
-                          gradeRecords.map((record) => (
+                          (gradeRecords || []).map((record) => (
                             <tr key={record.enrollment_id} className="hover:bg-[#F7F5FC]/60 transition">
                               <td className="py-4 px-6">
                                 <span className="font-semibold text-[#151320] block">{record.student_name}</span>
@@ -2161,15 +2531,8 @@ export default function App() {
                                 {record.total_score}
                               </td>
                               <td className="py-4 px-6 text-center">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
-                                  record.grade_rating === 'ممتاز' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                  record.grade_rating === 'جيد جداً' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  record.grade_rating === 'جيد' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                  record.grade_rating === 'مقبول' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                  record.grade_rating === 'لم ترصد' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                                  'bg-rose-50 text-rose-700 border-rose-200'
-                                }`}>
-                                  {record.grade_rating}
+                                <span className="inline-block px-3 py-1 text-xs font-bold rounded-full border bg-emerald-50 text-emerald-600 border-emerald-200">
+                                  {Number(record.total_score || 0) >= 90 ? 'ممتاز' : Number(record.total_score || 0) >= 80 ? 'جيد جداً' : Number(record.total_score || 0) >= 70 ? 'جيد' : Number(record.total_score || 0) >= 60 ? 'مقبول' : 'راسب'}
                                 </span>
                               </td>
                               <td className="py-4 px-6 text-center">
@@ -2196,6 +2559,498 @@ export default function App() {
               </main>
             )}
 
+           {/* تبويب الموارد البشرية والرواتب */}
+        {(activeTab as any) === 'hr' && (
+          <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-[#151320]">الموارد البشرية والرواتب (HR & Payroll)</h1>
+                <p className="text-slate-500 text-sm mt-1">مستحقات هيئة التدريس ومسيرات الرواتب المرتبطة بقاعدة البيانات</p>
+              </div>
+
+              {/* زر فتح نافذة التخصيص المنبثقة */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (teachers && teachers.length > 0) {
+                    setHrTeacherId(teachers[0].id);
+                  }
+                  setShowHrModal(true);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white font-medium shadow-md shadow-[#4F26E9]/20 hover:opacity-95 transition cursor-pointer"
+              >
+                <span>+ تخصيص عقد / مسير راتب</span>
+              </button>
+            </div>
+
+            {/* الجدول الرئيسي */}
+            <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
+              <table className="w-full text-right border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                    <th className="py-4 px-6 text-right">المدرس (هيئة التدريس)</th>
+                    <th className="py-4 px-6 text-right">القسم الأكاديمي</th>
+                    <th className="py-4 px-6 text-center">نوع العقد</th>
+                    <th className="py-4 px-6 text-center">الراتب الأساسي</th>
+                    <th className="py-4 px-6 text-center">ساعات التدريس</th>
+                    <th className="py-4 px-6 text-center">أجر الساعة</th>
+                    <th className="py-4 px-6 text-center font-bold text-[#4F26E9]">صافي المستحق</th>
+                    <th className="py-4 px-6 text-center">الحالة</th>
+                    <th className="py-4 px-6 text-center">الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
+                  {(!payrollRecords || payrollRecords.length === 0) ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
+                        جاري تحميل البيانات من قاعدة البيانات...
+                      </td>
+                    </tr>
+                  ) : (
+                    payrollRecords.map((item: any) => (
+                      <tr key={item.teacher_id} className="hover:bg-[#F7F5FC]/60 transition">
+                        <td className="py-4 px-6 font-semibold text-[#151320]">{item.teacher_name}</td>
+                        <td className="py-4 px-6 text-slate-600">{item.department}</td>
+                        <td className="py-4 px-6 text-center">
+                          <span className="px-2.5 py-1 text-xs rounded-full bg-purple-50 text-[#4F26E9] border border-purple-100 font-medium">
+                            {item.contract_type}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center font-mono font-semibold">${item.base_salary}</td>
+                        <td className="py-4 px-6 text-center font-mono">{item.teaching_hours} س</td>
+                        <td className="py-4 px-6 text-center font-mono">${item.hourly_rate}</td>
+                        <td className="py-4 px-6 text-center font-mono font-bold text-emerald-600">
+                          ${item.net_salary}
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setHrTeacherId(item.teacher_id);
+                                setHrContractType(item.contract_type || 'دوام كامل');
+                                setHrBaseSalary(String(item.base_salary || 0));
+                                setHrHours(String(item.teaching_hours || 0));
+                                setHrRate(String(item.hourly_rate || 25));
+                                setShowHrModal(true);
+                              }}
+                              className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                            >
+                              تعديل
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`هل تريد بالتأكيد حذف بيانات (${item.teacher_name}) نهائياً؟`)) {
+                                  try {
+                                    const res = await fetch(`http://localhost/uws/api/hr.php?action=delete&teacher_id=${item.teacher_id}`);
+                                    const resData = await res.json();
+                                    if (resData.success) {
+                                      loadPayroll();
+                                    } else {
+                                      alert(resData.message || 'فشل الحذف');
+                                    }
+                                  } catch (e) {
+                                    console.error(e);
+                                    alert('حدث خطأ في الاتصال بالخادم');
+                                  }
+                                }
+                              }}
+                              className="px-3 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition cursor-pointer"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* النافذة المنبثقة Modal */}
+            {showHrModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                  <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                    <div>
+                      <h2 className="text-lg font-bold text-[#151320]">تخصيص مستحقات وعقد عضو هيئة التدريس</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">تحديد الراتب، الساعات المنفذة، ونوع التعاقد</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowHrModal(false)}
+                      className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await fetch('http://localhost/uws/api/hr.php?action=save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          teacher_id: hrTeacherId,
+                          contract_type: hrContractType,
+                          base_salary: parseFloat(hrBaseSalary) || 0,
+                          teaching_hours: parseInt(hrHours) || 0,
+                          hourly_rate: parseFloat(hrRate) || 25
+                        })
+                      });
+                      setShowHrModal(false);
+                      if (typeof (window as any).loadPayroll === 'function') (window as any).loadPayroll();
+                    }}
+                    className="space-y-4 mt-4"
+                  >
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر عضو هيئة التدريس:</label>
+                      <select
+                        value={hrTeacherId}
+                        onChange={(e) => setHrTeacherId(e.target.value)}
+                        className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#4F26E9]"
+                      >
+                        {teachers && teachers.map((t: any) => (
+                          <option key={t.id} value={t.id}>{t.name} - {t.department || 'عام'}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">نوع العقد:</label>
+                        <select
+                          value={hrContractType}
+                          onChange={(e) => setHrContractType(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                        >
+                          <option value="دوام كامل">دوام كامل</option>
+                          <option value="ساعات منتدب">ساعات منتدب</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">الراتب الأساسي ($):</label>
+                        <input
+                          type="number"
+                          value={hrBaseSalary}
+                          onChange={(e) => setHrBaseSalary(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                          placeholder="1200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">ساعات التدريس الشهرية:</label>
+                        <input
+                          type="number"
+                          value={hrHours}
+                          onChange={(e) => setHrHours(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                          placeholder="20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">أجر الساعة ($):</label>
+                        <input
+                          type="number"
+                          value={hrRate}
+                          onChange={(e) => setHrRate(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                          placeholder="25"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-[#F7F5FC] rounded-2xl border border-[#ECE8F6] flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium">صافي المستحق المحسوب:</span>
+                      <span className="font-mono font-bold text-lg text-[#4F26E9]">
+                        ${(parseFloat(hrBaseSalary) || 0) + ((parseInt(hrHours) || 0) * (parseFloat(hrRate) || 0))}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowHrModal(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                      >
+                        إلغاء
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/20 hover:opacity-95 transition cursor-pointer"
+                      >
+                        حفظ واعتماد المسير
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </main>
+        )}
+
+        {/* تبويب المخازن والأصول */}
+        {(activeTab as any) === 'inventory' && (
+          <main className="p-8 space-y-6 max-w-7xl w-full mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-[#151320]">المخازن والأصول (Inventory & Assets)</h1>
+                <p className="text-slate-500 text-sm mt-1">حصر وتتبع العهد، الأجهزة، والمعدات الأكاديمية والمكتبية</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAsset(null);
+                  setAssetName('');
+                  setAssetCategory('أجهزة ومعدات');
+                  setAssetLocation('معمل الحاسوب 1');
+                  setAssetQuantity('1');
+                  setAssetStatus('متاح');
+                  setShowAssetModal(true);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white font-medium shadow-md shadow-[#4F26E9]/20 hover:opacity-95 transition cursor-pointer"
+              >
+                <span>+ إضافة أصل / عهدة جديدة</span>
+              </button>
+            </div>
+
+            {/* جدول الأصول والمخازن موزون الأعمدة */}
+            <div className="bg-white rounded-3xl border border-[#ECE8F6] shadow-sm overflow-hidden card-3d">
+              <table className="w-full table-fixed text-right border-collapse text-sm">
+                <thead>
+                  <tr className="bg-[#F7F5FC] border-b border-[#ECE8F6] text-slate-600 font-bold">
+                    <th className="py-4 px-6 text-right w-[28%]">اسم الأصل / الجهاز</th>
+                    <th className="py-4 px-6 text-right w-[18%]">التصنيف</th>
+                    <th className="py-4 px-6 text-right w-[20%]">الموقع / المعمل</th>
+                    <th className="py-4 px-6 text-center w-[10%]">الكمية</th>
+                    <th className="py-4 px-6 text-center w-[12%]">الحالة</th>
+                    <th className="py-4 px-6 text-center w-[12%]">الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ECE8F6] text-slate-700">
+                  {(!assetsList || assetsList.length === 0) ? (
+                    <tr>
+                      <td colSpan={6} className="py-16 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <svg className="w-10 h-10 text-slate-300 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16ZM3.3 7 12 12l8.7-5M12 22V12" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <span>لا توجد أصول مسجلة في المخزن حتى الآن.</span>
+                          <span className="text-xs text-slate-400">اضغط على زر "+ إضافة أصل / عهدة جديدة" للبدء.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    assetsList.map((asset: any) => (
+                      <tr key={asset.id} className="hover:bg-[#F7F5FC]/60 transition">
+                        <td className="py-4 px-6 font-semibold text-[#151320] truncate" title={asset.asset_name}>
+                          {asset.asset_name}
+                        </td>
+                        <td className="py-4 px-6 text-slate-600 truncate">{asset.category}</td>
+                        <td className="py-4 px-6 text-slate-600 truncate">{asset.location}</td>
+                        <td className="py-4 px-6 text-center font-mono font-bold text-[#151320]">{asset.quantity}</td>
+                        <td className="py-4 px-6 text-center">
+                          <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full border ${
+                            asset.status === 'متاح' 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                              : asset.status === 'قيد الصيانة'
+                              ? 'bg-amber-50 text-amber-600 border-amber-200'
+                              : 'bg-rose-50 text-rose-600 border-rose-200'
+                          }`}>
+                            {asset.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAsset(asset);
+                                setAssetName(asset.asset_name);
+                                setAssetCategory(asset.category);
+                                setAssetLocation(asset.location);
+                                setAssetQuantity(String(asset.quantity));
+                                setAssetStatus(asset.status);
+                                setShowAssetModal(true);
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition cursor-pointer"
+                            >
+                              تعديل
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`هل أنت متأكد من حذف (${asset.asset_name}) نهائياً؟`)) {
+                                  try {
+                                    const res = await fetch(`http://localhost/uws/api/inventory.php?action=delete&id=${asset.id}`);
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      loadAssets();
+                                    } else {
+                                      alert(data.message || 'فشل الحذف');
+                                    }
+                                  } catch {
+                                    alert('تعذر الاتصال بالخادم');
+                                  }
+                                }
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition cursor-pointer"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* نافذة الإضافة والتعديل Modal */}
+            {showAssetModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-[#ECE8F6] card-3d">
+                  <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                    <div>
+                      <h2 className="text-lg font-bold text-[#151320]">
+                        {editingAsset ? 'تعديل بيانات الأصل' : 'إضافة أصل / عهدة جديدة'}
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5">تسجيل الأجهزة والممتلكات وتحديد مواقعها</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAssetModal(false)}
+                      className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const actionType = editingAsset ? 'edit' : 'add';
+                      await fetch(`http://localhost/uws/api/inventory.php?action=${actionType}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          id: editingAsset?.id,
+                          asset_name: assetName,
+                          category: assetCategory,
+                          location: assetLocation,
+                          quantity: parseInt(assetQuantity) || 1,
+                          status: assetStatus
+                        })
+                      });
+                      setShowAssetModal(false);
+                      loadAssets();
+                    }}
+                    className="space-y-4 mt-4"
+                  >
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">اسم الأصل / الجهاز:</label>
+                      <input
+                        type="text"
+                        required
+                        value={assetName}
+                        onChange={(e) => setAssetName(e.target.value)}
+                        className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#4F26E9]"
+                        placeholder="مثال: شاشة عرض بروجكتر بنكيو"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">التصنيف:</label>
+                        <select
+                          value={assetCategory}
+                          onChange={(e) => setAssetCategory(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                        >
+                          <option value="أجهزة ومعدات">أجهزة ومعدات</option>
+                          <option value="أثاث مكتبي">أثاث مكتبي</option>
+                          <option value="شبكات وخوادم">شبكات وخوادم</option>
+                          <option value="مستلزمات معملية">مستلزمات معملية</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">الموقع / القاعة:</label>
+                        <input
+                          type="text"
+                          required
+                          value={assetLocation}
+                          onChange={(e) => setAssetLocation(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                          placeholder="مثال: القاعة الكبرى"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">الكمية:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={assetQuantity}
+                          onChange={(e) => setAssetQuantity(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">الحالة التشغيلية:</label>
+                        <select
+                          value={assetStatus}
+                          onChange={(e) => setAssetStatus(e.target.value)}
+                          className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#4F26E9]"
+                        >
+                          <option value="متاح">متاح</option>
+                          <option value="قيد الصيانة">قيد الصيانة</option>
+                          <option value="تالف / مستهلك">تالف / مستهلك</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAssetModal(false)}
+                        className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                      >
+                        إلغاء
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/20 hover:opacity-95 transition cursor-pointer"
+                      >
+                        {editingAsset ? 'تحديث البيانات' : 'حفظ الأصل'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </main>
+        )}
+
           </div>
 
           {/* نوافذ المستخدمين */}
@@ -2215,7 +3070,12 @@ export default function App() {
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">نوع الحساب (الدور)</label>
                     <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
                       <option value="student">طالب (Student)</option>
-                      <option value="admin">مسؤول (Admin)</option>
+                      <option value="teacher">مدرس / هيئة تدريس (Teacher)</option>
+                      <option value="finance">محاسب مالي (Finance)</option>
+                      <option value="admission">شؤون طلاب وتسجيل (Admission)</option>
+                      <option value="control">كنترول ودرجات (Control)</option>
+                      <option value="hr">موارد بشرية (HR)</option>
+                      <option value="admin">مسؤول نظام (Admin)</option>
                     </select>
                   </div>
                   <div className="flex gap-3 pt-3">
@@ -2607,10 +3467,62 @@ export default function App() {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
                 <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+                  {/* اختيار الطالب والمقرر من قائمة منسدلة */}
+                <div className="grid grid-cols-2 gap-3 mt-4 mb-2">
                   <div>
-                    <h3 className="font-bold text-[#151320] text-lg">رصد الدرجات الأكاديمية</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{editingGrade.student_name} - {editingGrade.course_name}</p>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر الطالب</label>
+                    <select
+                      value={editingGrade.student_id || ''}
+                      onChange={(e) => {
+                        const sId = Number(e.target.value);
+                        const selectedSt = students?.find((s: any) => s.id === sId);
+                        setEditingGrade({
+                          ...(editingGrade as any),
+                          student_id: sId,
+                          student_name: selectedSt?.name || ''
+                        });
+                      }}
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-xs font-medium text-[#151320] outline-none focus:border-[#4F26E9]"
+                    >
+                      {students && students.length > 0 ? (
+                        students.map((st: any) => (
+                          <option key={st.id} value={st.id}>
+                            {st.name} (#{st.id})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">لا يوجد طلاب</option>
+                      )}
+                    </select>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">اختر المقرر</label>
+                    <select
+                      value={editingGrade.course_id || ''}
+                      onChange={(e) => {
+                        const cId = Number(e.target.value);
+                        const selectedCr = courses?.find((c: any) => c.id === cId);
+                        setEditingGrade({
+                          ...(editingGrade as any),
+                          course_id: cId,
+                          course_name: (selectedCr as any)?.course_name || ''
+                        });
+                      }}
+                      className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-3 py-2 text-xs font-medium text-[#151320] outline-none focus:border-[#4F26E9]"
+                    >
+                      {courses && courses.length > 0 ? (
+                        courses.map((c: any) => (
+                          <option key={c.id} value={c.id}>
+                            {c.course_name} ({c.course_code || c.code})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">لا توجد مقررات</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
                   <button onClick={() => setEditingGrade(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                 </div>
                 {modalError && <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs">{modalError}</div>}
@@ -2623,8 +3535,8 @@ export default function App() {
                       min="0" 
                       max="100" 
                       required 
-                      value={midtermScore} 
-                      onChange={(e) => setMidtermScore(e.target.value)} 
+                      value={(editingGrade as any)?.midterm_score ?? (editingGrade as any)?.course_work ?? ''}
+onChange={(e) => setEditingGrade({ ...(editingGrade as any), midterm_score: Number(e.target.value), course_work: Number(e.target.value) })} 
                       className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
                     />
                   </div>
@@ -2635,8 +3547,8 @@ export default function App() {
                       step="0.5" 
                       min="0" 
                       max="100" 
-                      value={practicalScore} 
-                      onChange={(e) => setPracticalScore(e.target.value)} 
+                      value={(editingGrade as any)?.practical_score ?? ''}
+                      onChange={(e) => setEditingGrade({ ...(editingGrade as any), practical_score: Number(e.target.value), practical: Number(e.target.value) })}          
                       className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
                     />
                   </div>
@@ -2648,15 +3560,14 @@ export default function App() {
                       min="0" 
                       max="100" 
                       required 
-                      value={finalScore} 
-                      onChange={(e) => setFinalScore(e.target.value)} 
+                      value={(editingGrade as any)?.final_score ?? (editingGrade as any)?.final_exam ?? ''}
+                      onChange={(e) => setEditingGrade({ ...(editingGrade as any), final_score: Number(e.target.value), final_exam: Number(e.target.value) })} 
                       className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" 
                     />
                   </div>
                   <div className="p-3 bg-[#F7F5FC] rounded-xl border border-[#ECE8F6] flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-semibold">المجموع المحسوب:</span>
                     <span className="font-mono font-bold text-base text-[#4F26E9]">
-                      {(Number(midtermScore) || 0) + (Number(practicalScore) || 0) + (Number(finalScore) || 0)} / 100
                     </span>
                   </div>
                   <div className="flex gap-3 pt-3">

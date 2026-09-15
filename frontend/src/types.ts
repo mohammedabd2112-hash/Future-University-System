@@ -24,3 +24,17 @@ export interface Payment {
   notes?: string;
   created_at: string;
 }
+
+export interface GradeRecord {
+  id: number;
+  student_id: number;
+  course_id: number;
+  student_name: string;
+  course_name: string;
+  course_code?: string;
+  course_work: number;
+  practical: number;
+  final_exam: number;
+  total: number;
+  grade_letter: string;
+}

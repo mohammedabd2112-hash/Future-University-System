@@ -30,12 +30,12 @@ function tableExists($conn, $table) {
     return $res && $res->num_rows > 0;
 }
 
-// 1. عدد الطلاب
+// 1. إجمالي الطلاب
 $students_count = 0;
 $res = $conn->query("SELECT COUNT(*) AS c FROM users WHERE role = 'student'");
 if ($res && $row = $res->fetch_assoc()) $students_count = intval($row['c']);
 
-// 2. عدد المدرسين
+// 2. إجمالي المدرسين
 $teachers_count = 0;
 if (tableExists($conn, 'teachers')) {
     $res = $conn->query("SELECT COUNT(*) AS c FROM teachers");
@@ -45,14 +45,14 @@ if (tableExists($conn, 'teachers')) {
     if ($res && $row = $res->fetch_assoc()) $teachers_count = intval($row['c']);
 }
 
-// 3. عدد الكليات
+// 3. إجمالي الكليات
 $colleges_count = 0;
 if (tableExists($conn, 'colleges')) {
     $res = $conn->query("SELECT COUNT(*) AS c FROM colleges");
     if ($res && $row = $res->fetch_assoc()) $colleges_count = intval($row['c']);
 }
 
-// 4. الأخبار وآخر الإعلانات
+// 4. الأخبار والإعلانات
 $news_count = 0;
 $recent_news = [];
 if (tableExists($conn, 'news')) {
@@ -67,7 +67,47 @@ if (tableExists($conn, 'news')) {
     }
 }
 
-// 5. آخر الطلاب المسجلين حديثاً
+// 5. إجمالي المستخدمين
+$users_count = 0;
+$res_u = $conn->query("SELECT COUNT(*) AS c FROM users");
+if ($res_u && $row = $res_u->fetch_assoc()) $users_count = intval($row['c']);
+
+// 6. المقررات الدراسية
+$courses_count = 0;
+if (tableExists($conn, 'courses')) {
+    $res = $conn->query("SELECT COUNT(*) AS c FROM courses");
+    if ($res && $row = $res->fetch_assoc()) $courses_count = intval($row['c']);
+}
+
+// 7. سجلات الكنترول والدرجات
+$grades_count = 0;
+if (tableExists($conn, 'grades')) {
+    $res = $conn->query("SELECT COUNT(*) AS c FROM grades");
+    if ($res && $row = $res->fetch_assoc()) $grades_count = intval($row['c']);
+}
+
+// 8. عقود ومسيرات الموارد البشرية
+$payroll_count = 0;
+if (tableExists($conn, 'hr_contracts')) {
+    $res = $conn->query("SELECT COUNT(*) AS c FROM hr_contracts");
+    if ($res && $row = $res->fetch_assoc()) $payroll_count = intval($row['c']);
+}
+
+// 9. الأصول والمخازن
+$assets_count = 0;
+if (tableExists($conn, 'inventory_assets')) {
+    $res = $conn->query("SELECT COUNT(*) AS c FROM inventory_assets");
+    if ($res && $row = $res->fetch_assoc()) $assets_count = intval($row['c']);
+}
+
+// 10. إجمالي مبالغ الفواتير / المالية
+$finance_total = 0;
+if (tableExists($conn, 'invoices')) {
+    $res = $conn->query("SELECT COALESCE(SUM(amount), 0) AS s FROM invoices");
+    if ($res && $row = $res->fetch_assoc()) $finance_total = floatval($row['s']);
+}
+
+// آخر الطلاب المسجلين حديثاً
 $recent_students = [];
 $res_s = $conn->query("SELECT id, name, email FROM users WHERE role = 'student' ORDER BY id DESC LIMIT 5");
 if ($res_s) {
@@ -82,10 +122,16 @@ echo json_encode([
         "students" => $students_count,
         "teachers" => $teachers_count,
         "colleges" => $colleges_count,
-        "news" => $news_count
+        "news"     => $news_count,
+        "users"    => $users_count,
+        "courses"  => $courses_count,
+        "grades"   => $grades_count,
+        "payroll"  => $payroll_count,
+        "assets"   => $assets_count,
+        "finance"  => $finance_total
     ],
     "recent_students" => $recent_students,
-    "recent_news" => $recent_news
+    "recent_news"     => $recent_news
 ]);
 
 $conn->close();
