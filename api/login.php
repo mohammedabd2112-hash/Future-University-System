@@ -25,6 +25,15 @@ session_set_cookie_params([
 session_start();
 require_once "../config.php";
 
+// نفس مفاتيح التشفير المستخدمة في users.php
+define('PASS_SECRET_KEY', 'UWS_SYSTEM_SECRET_KEY_2026_XYZ!@#');
+define('PASS_SECRET_IV', '1234567890123456');
+
+function decryptPass($cipher) {
+    $decrypted = openssl_decrypt($cipher, 'AES-256-CBC', PASS_SECRET_KEY, 0, PASS_SECRET_IV);
+    return $decrypted !== false ? $decrypted : $cipher;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(["success" => false, "message" => "طريقة الطلب غير صحيحة"]);
@@ -54,7 +63,10 @@ if ($result->num_rows === 0) {
 
 $user = $result->fetch_assoc();
 
-if (!password_verify($password, $user["password"])) {
+// التحقق المزدوج: فك التشفير الجديد أو مطابقة الهاش القديم
+$isValid = ($password === decryptPass($user["password"])) || password_verify($password, $user["password"]);
+
+if (!$isValid) {
     http_response_code(401);
     echo json_encode(["success" => false, "message" => "البريد الإلكتروني أو كلمة المرور غير صحيحة"]);
     exit;

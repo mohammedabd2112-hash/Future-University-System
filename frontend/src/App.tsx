@@ -5,7 +5,7 @@ import {
   UserPlus, Trash2, Pencil, X, School, UserCheck, Newspaper, ArrowUpRight,
   PlusCircle, FolderPlus, Calendar, UserCog, BookOpen, RefreshCw, ArrowRight,
   ArrowLeft, Sparkles, CreditCard, Award,
-  Briefcase, FileText, Package
+  Briefcase, FileText, Package, Eye, EyeOff
 } from 'lucide-react';
 
 interface GradeRecord {
@@ -128,6 +128,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [showLoginView, setShowLoginView] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'colleges' | 'teachers' | 'news' | 'users' | 'finance' | 'courses' | 'grades'>('overview'); 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -463,16 +464,12 @@ export default function App() {
 
   // دالة حذف مقرر
   const handleDeleteCourse = async (courseId: number) => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذا المقرر؟ سيتم إزالة تسجيلات الطلاب المرتبطة به.')) {
-      return;
-    }
     try {
       const res = await fetch(`http://localhost/uws/api/courses.php?action=delete_course&id=${courseId}`, {
         method: 'POST'
       });
       const data = await res.json();
       if (data && data.success) {
-        // تحديث الواجهة فوراً
         setCourses((prev: any[]) => prev.filter((c: any) => c.id !== courseId));
         if (typeof loadCourses === 'function') loadCourses();
       } else {
@@ -594,6 +591,15 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // حالات تعديل المقرر الدراسي
+  const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<any>(null);
+  const [editCourseName, setEditCourseName] = useState('');
+  const [editCourseCode, setEditCourseCode] = useState('');
+  const [editCourseHours, setEditCourseHours] = useState('3');
+  const [editCourseCollegeId, setEditCourseCollegeId] = useState('');
+  const [courseToDelete, setCourseToDelete] = useState<any>(null);
 
   useEffect(() => {
     loadColleges();
@@ -733,29 +739,37 @@ export default function App() {
     }
   };
 
-  const handleUpdateUser = async (e: React.FormEvent) => {
+  const handleUpdateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
-    setModalError(null);
-    setModalLoading(true);
+    if (!editingCourse) return;
+
     try {
-      const res = await fetch('http://localhost/uws/api/users.php', {
-        method: 'PUT',
+      const res = await fetch('http://localhost/uws/api/courses.php?action=edit_course', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id: editingUser.id, name: editUserName, email: editUserEmail, password: editUserPassword, role: editUserRole })
+        body: JSON.stringify({
+          id: editingCourse.id,
+          name: editCourseName,
+          code: editCourseCode,
+          credits: parseInt(editCourseHours) || 3,
+          college_id: parseInt(editCourseCollegeId) || 1
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setEditingUser(null);
-        loadSystemUsers();
-        loadStudents();
-        loadDashboardData();
+        setShowEditCourseModal(false);
+        setEditingCourse(null);
+        if (typeof loadCourses === 'function') {
+          loadCourses();
+        } else {
+          window.location.reload();
+        }
       } else {
-        setModalError(data.message || 'فشل التعديل');
+        alert(data.message || 'حدث خطأ أثناء حفظ التعديل');
       }
-    } finally {
-      setModalLoading(false);
+    } catch (err) {
+      console.error('Error updating course:', err);
     }
   };
 
@@ -2006,6 +2020,7 @@ export default function App() {
                                   setEditUserEmail(u.email);
                                   setEditUserPassword('');
                                   setEditUserRole(u.role);
+                                  setEditUserPassword((u as any).password || '');
                                 }} 
                                 className="p-2 text-[#4F26E9] hover:bg-[#F7F5FC] rounded-lg transition" 
                                 title="تعديل"
@@ -2412,32 +2427,12 @@ export default function App() {
     <button
       type="button"
       onClick={() => {
-        const currentName = course.course_name || course.name || '';
-        const currentCode = course.course_code || course.code || '';
-        const newName = window.prompt('اسم المقرر الجديد:', currentName);
-        if (!newName) return;
-        const newCode = window.prompt('رمز المقرر الجديد:', currentCode);
-        if (!newCode) return;
-
-        fetch('http://localhost/uws/api/courses.php?action=edit_course', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: course.id,
-            name: newName,
-            code: newCode,
-            credits: course.credit_hours || course.credits || 3,
-            college_id: course.college_id || 1
-          })
-        })
-        .then(res => res.json())
-        .then(d => {
-          if (d.success) {
-            if (typeof loadCourses === 'function') loadCourses();
-          } else {
-            alert(d.message || 'فشل التعديل');
-          }
-        });
+        setEditingCourse(course);
+        setEditCourseName(course.course_name || course.name || '');
+        setEditCourseCode(course.course_code || course.code || '');
+        setEditCourseHours(course.credit_hours || course.credits || '3');
+        setEditCourseCollegeId(course.college_id || '1');
+        setShowEditCourseModal(true);
       }}
       className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
     >
@@ -2445,7 +2440,7 @@ export default function App() {
     </button>
     <button
       type="button"
-      onClick={() => handleDeleteCourse(course.id)}
+      onClick={() => setCourseToDelete(course)}
       className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
     >
       حذف
@@ -3087,32 +3082,80 @@ export default function App() {
             </div>
           )}
 
-          {editingUser && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
-                <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
-                  <h3 className="font-bold text-[#151320] text-lg">تعديل بيانات الحساب</h3>
-                  <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleUpdateUser} className="space-y-4 mt-5">
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">الاسم</label><input type="text" required value={editUserName} onChange={(e) => setEditUserName(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">البريد الإلكتروني</label><input type="email" required value={editUserEmail} onChange={(e) => setEditUserEmail(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm" /></div>
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">كلمة مرور جديدة (اختياري)</label><input type="text" placeholder="••••••••" value={editUserPassword} onChange={(e) => setEditUserPassword(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm font-mono" /></div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">الدور في النظام</label>
-                    <select value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)} className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm">
-                      <option value="student">طالب (Student)</option>
-                      <option value="admin">مسؤول (Admin)</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-3 pt-3">
-                    <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm">إلغاء</button>
-                    <button type="submit" disabled={modalLoading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/25">حفظ التعديلات</button>
-                  </div>
-                </form>
-              </div>
+          {showEditCourseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[#ECE8F6] card-3d">
+            <div className="flex items-center justify-between pb-4 border-b border-[#ECE8F6]">
+              <h3 className="font-bold text-[#151320] text-lg">تعديل بيانات المقرر الدراسي</h3>
+              <button
+                type="button"
+                onClick={() => { setShowEditCourseModal(false); setEditingCourse(null); }}
+                className="text-slate-400 hover:text-slate-600 text-lg p-1"
+              >
+                ✕
+              </button>
             </div>
-          )}
+
+            <form onSubmit={handleUpdateCourse} className="space-y-4 mt-5 text-right">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  اسم المادة / المقرر
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editCourseName}
+                  onChange={(e) => setEditCourseName(e.target.value)}
+                  className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm text-right focus:outline-none focus:border-[#4F26E9]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  رمز المقرر (Course Code)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editCourseCode}
+                  onChange={(e) => setEditCourseCode(e.target.value)}
+                  className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm text-right focus:outline-none focus:border-[#4F26E9]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  الساعات المعتمدة
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="6"
+                  value={editCourseHours}
+                  onChange={(e) => setEditCourseHours(e.target.value)}
+                  className="w-full bg-[#F7F5FC] border border-[#ECE8F6] rounded-xl px-4 py-2.5 text-sm text-right focus:outline-none focus:border-[#4F26E9]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditCourseModal(false); setEditingCourse(null); }}
+                  className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#4F26E9] to-[#8453FC] text-white text-sm font-semibold shadow-md shadow-[#4F26E9]/20 hover:opacity-95 transition-opacity"
+                >
+                  حفظ التعديلات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
           {/* نوافذ الأخبار */}
           {showAddNewsModal && (
@@ -3461,7 +3504,41 @@ export default function App() {
               </div>
             </div>
           )}
+          {/* نافذة حذف مقرر */}
+          {courseToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-[#ECE8F6] text-center card-3d">
+            <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+              ✕
+            </div>
+            
+            <h3 className="font-bold text-[#151320] text-lg mb-2">تأكيد حذف المقرر</h3>
+            <p className="text-slate-500 text-xs leading-relaxed mb-6">
+              هل أنت متأكد من حذف المقرر <span className="font-bold text-[#151320]">"{courseToDelete.course_name || courseToDelete.name}"</span>؟ سيتم إلغاء تسجيلات الطلاب المرتبطة به نهائياً.
+            </p>
 
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setCourseToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#ECE8F6] text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                    handleDeleteCourse(courseToDelete.id || courseToDelete);
+                    setCourseToDelete(null);
+                  }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold shadow-md shadow-red-500/20 transition-colors"
+              >
+                نعم، احذف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}  
           {/* نافذة رصد وتعديل درجات الطالب */}
           {editingGrade && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#151320]/60 backdrop-blur-sm p-4">

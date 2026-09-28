@@ -31,14 +31,29 @@ if ($_SESSION["user_role"] !== 'admin') {
 
 require_once "../config.php";
 
+// دوال التشفير وفك التشفير للأدمن
+define('PASS_SECRET_KEY', 'UWS_SYSTEM_SECRET_KEY_2026_XYZ!@#');
+define('PASS_SECRET_IV', '1234567890123456');
+
+function encryptPass($plain) {
+    return openssl_encrypt($plain, 'AES-256-CBC', PASS_SECRET_KEY, 0, PASS_SECRET_IV);
+}
+
+function decryptPass($cipher) {
+    $decrypted = openssl_decrypt($cipher, 'AES-256-CBC', PASS_SECRET_KEY, 0, PASS_SECRET_IV);
+    return $decrypted !== false ? $decrypted : $cipher;
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
-// 1. عرض جميع المستخدمين بمختلف رتبهم
+// 1. عرض جميع المستخدمين وفك التشفير للأدمن
 if ($method === 'GET') {
-    $result = $conn->query("SELECT id, name, email, role, created_at FROM users ORDER BY id DESC");
+    $result = $conn->query("SELECT id, name, email, role, password, created_at FROM users ORDER BY id DESC");
     $users = [];
     if ($result) {
         while ($row = $result->fetch_assoc()) {
+            // فك التشفير لكلمة المرور ليراها الأدمن واضحة
+            $row['password'] = decryptPass($row['password']);
             $users[] = $row;
         }
     }
@@ -46,7 +61,7 @@ if ($method === 'GET') {
     exit;
 }
 
-// 2. إضافة مستخدم جديد وتحديد دوره
+// 2. إضافة مستخدم جديد مع تشفير كلمته
 if ($method === 'POST') {
     $input = json_decode(file_get_contents("php://input"), true);
     $name = trim($input["name"] ?? "");
@@ -60,9 +75,9 @@ if ($method === 'POST') {
         exit;
     }
 
-    $hashed = password_hash($password, PASSWORD_DEFAULT);
+    $encrypted = encryptPass($password);
     $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $name, $email, $hashed, $role);
+    $stmt->bind_param("ssss", $name, $email, $encrypted, $role);
 
     if ($stmt->execute()) {
         echo json_encode(["success" => true, "message" => "تم إنشاء المستخدم بنجاح"]);
@@ -74,7 +89,7 @@ if ($method === 'POST') {
     exit;
 }
 
-// 3. تعديل مستخدم ودوره
+// 3. تعديل مستخدم وتشفير كلمة المرور الجديدة إن وجدت
 if ($method === 'PUT') {
     $input = json_decode(file_get_contents("php://input"), true);
     $id = intval($input["id"] ?? 0);
@@ -90,9 +105,9 @@ if ($method === 'PUT') {
     }
 
     if ($password !== "") {
-        $hashed = password_hash($password, PASSWORD_DEFAULT);
+        $encrypted = encryptPass($password);
         $stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, password = ?, role = ? WHERE id = ?");
-        $stmt->bind_param("ssssi", $name, $email, $hashed, $role, $id);
+        $stmt->bind_param("ssssi", $name, $email, $encrypted, $role, $id);
     } else {
         $stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?");
         $stmt->bind_param("sssi", $name, $email, $role, $id);
@@ -108,7 +123,7 @@ if ($method === 'PUT') {
     exit;
 }
 
-// 4. حذف مستخدم (مع منع حذف المسؤول لحسابه النشط)
+// 4. حذف مستخدم
 if ($method === 'DELETE') {
     $id = intval($_GET['id'] ?? 0);
     if ($id === $_SESSION["user_id"]) {
